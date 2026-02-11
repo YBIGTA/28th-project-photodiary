@@ -1,0 +1,15 @@
+.env
+.DS_Store
+__pycache__/
+*.pyc
+.idea/
+.venv/
+
+# image files
+*.jpeg
+*.jpg
+*.png
+*.heic
+
+.claude/
+*.pdf
