@@ -2,59 +2,106 @@
 
 사진의 EXIF 메타데이터(GPS, 촬영 시각)를 추출하고, 역지오코딩으로 장소 정보를 조회한 뒤, 벡터 임베딩 기반 시맨틱 검색으로 자연어 질문에 맞는 사진을 찾아주는 서비스입니다.
 
-## 환경 설정
 
-### 1. 가상환경 생성 & 의존성 설치
+
+
+
+
+
+
+# PhotoDiary — Event Clustering 모듈
+
+이 문서는 **이벤트 클러스터링 담당 업무 범위**만 정리합니다.
+목표는 시간순 사진 메타데이터를 받아 의미 있는 이벤트 단위로 묶고,
+결과를 DB `events` 스키마와 맞는 형태로 반환하는 것입니다.
+
+## 담당 범위
+
+- 구현 파일: `pipeline/event_clustering.py`
+- 핵심 함수
+  - `haversine_distance(lat1, lon1, lat2, lon2) -> float`
+  - `cluster_events(photo_df, user_id=1, ...) -> list[dict]`
+  - `build_mock_photo_data() -> pd.DataFrame`
+
+## 클러스터링 규칙 (현재 기준)
+
+사진을 `timestamp` 기준 오름차순 정렬한 뒤, `P_i`를 이전 데이터와 비교하여 이벤트 분리 여부를 판단합니다.
+
+1. **시간 분리 (연속성 체크)**
+   - `P_i.timestamp - P_{i-1}.timestamp >= 120분` 이면 분리
+
+2. **공간 분리 (앵커 기준 체크)**
+   - 이벤트의 첫 사진을 Anchor로 두고,
+   - `distance(Anchor, P_i) >= 500m` 이면 분리
+
+### 왜 Anchor 기준인가?
+
+`distance(P_{i-1}, P_i)`만 쓰면, 100m씩 조금씩 이동하는 경우 누적 1km 이상 이동했어도 분리가 늦어지는
+**creeping distance 문제**가 발생할 수 있습니다.
+Anchor 기준은 누적 이동을 안정적으로 감지합니다.
+
+## 입력/출력 스펙
+
+### 입력 DataFrame 필수 컬럼
+
+- `photo_id`
+- `timestamp` (datetime 또는 파싱 가능한 문자열)
+- `latitude` (float)
+- `longitude` (float)
+
+### 출력 스키마 (DB `events` 정합)
+
+각 이벤트는 아래 키를 가집니다.
+
+- `user_id` (int)
+- `started_at` (datetime)
+- `ended_at` (datetime)
+- `primary_location` (str, `"lat,lon"`)
+- `photo_count` (int)
+
+디버깅/검증을 위해 현재는 아래 키도 함께 반환합니다.
+
+- `photo_ids` (list)
+
+## 실행 방법
+
+### 1) 의존성 설치
 
 ```bash
-python3 -m venv .venv
-source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
-### 2. 환경변수 설정
+### 2) Mock Data 테스트 실행
 
 ```bash
-cp .env.example .env
-# .env 파일에 API 키 및 DB 접속 정보 입력
+python -m pipeline.event_clustering
 ```
 
-### 3. DB 세팅 (PostgreSQL + pgvector)
+실행 시, 모의 사진 데이터를 클러스터링한 JSON 결과를 출력합니다.
 
-```bash
-# PostgreSQL 설치 (아래 "PostgreSQL 설치 방법" 참고)
+## 예시 출력 (요약)
 
-# DB 생성
-createdb photodiary
-
-# pgvector 확장 설치
-# brew install pgvector 로 설치된 버전이 PostgreSQL 버전과 맞지 않을 수 있음
-# 그 경우 소스 빌드:
-cd /tmp
-git clone --branch v0.8.1 https://github.com/pgvector/pgvector.git
-cd pgvector
-PG_CONFIG=$(brew --prefix postgresql@14)/bin/pg_config make && make install
-
-# 테이블 생성
-source .venv/bin/activate
-python db/schema.py
+```json
+[
+  {
+    "user_id": 1,
+    "started_at": "2026-02-13T09:00:00+00:00",
+    "ended_at": "2026-02-13T09:50:00+00:00",
+    "primary_location": "37.498165,127.027637",
+    "photo_count": 3,
+    "photo_ids": ["p1", "p2", "p3"]
+  }
+]
 ```
 
-`.env`에 DB 접속 정보를 설정합니다:
-```env
-# 방법 A: DATABASE_URL 한 줄로
-DATABASE_URL=postgresql://postgres:password@localhost:5432/photodiary
+## 파라미터 튜닝 포인트
 
-# 방법 B: 개별 변수
-DB_HOST=localhost
-DB_PORT=5432
-DB_NAME=photodiary
-DB_USER=postgres  # or 사용자 id (whoami로 확인 가능)
-DB_PASSWORD=password
-```
+- `TIME_SPLIT_MINUTES` 기본값: `120`
+- `DISTANCE_SPLIT_METERS` 기본값: `500`
 
-## 프로젝트 구조
+`cluster_events(...)` 호출 시 인자로 덮어쓸 수 있어 지역/도메인별 실험이 가능합니다.
 
+<<<<<<< HEAD
 ```
 ├── db/                          — DB 스키마 + CRUD
 │   ├── schema.py                — DDL 정의 & get_connection()
@@ -73,9 +120,17 @@ DB_PASSWORD=password
 ├── requirements.txt
 └── README.md
 ```
+=======
+## 현재 가정/제약
+>>>>>>> fd6532a (feat: 시공간 클러스터링 모듈 구현 및 문서화)
 
-## 파이프라인 흐름
+- 위치 좌표가 없는 행(`latitude/longitude` 결측)에 대한 별도 처리 로직은 아직 없습니다.
+- `primary_location`은 이벤트 내 평균 좌표 문자열입니다.
+  - 실제 주소/행정동 대표값이 필요하면 후처리(역지오코딩) 단계가 추가로 필요합니다.
+- 이 모듈은 **클러스터링 결과 반환**까지 담당하며,
+  DB INSERT 및 `photos.event_id` 업데이트는 별도 파이프라인에서 수행합니다.
 
+<<<<<<< HEAD
 ```
 사진 파일 (.jpeg/.jpg/.png/.heic)
   │
@@ -204,3 +259,10 @@ photodiary → Schemas → public → Tables
 ```
 
 > **주의**: 기본 `postgres` 데이터베이스가 아닌 **`photodiary`** 데이터베이스로 연결해야 테이블이 보입니다. `postgres` DB의 Tables에는 아무것도 없으니 헷갈리지 않도록 주의하세요.
+=======
+## 다음 작업 제안
+
+- `events` INSERT + `photos.event_id` 매핑 트랜잭션 함수 추가
+- 결측 좌표/이상치 좌표에 대한 방어 로직 추가
+- 샘플 케이스 기반 단위 테스트 추가 (시간 경계, 거리 경계, creeping 케이스)
+>>>>>>> fd6532a (feat: 시공간 클러스터링 모듈 구현 및 문서화)
