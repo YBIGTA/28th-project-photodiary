@@ -1,6 +1,7 @@
-"""photos 테이블 CRUD 함수"""
+"""photos 테이블 CRUD 함수 + embedding 관련 함수"""
 
 from pipeline.geocoder import PlaceInfo
+import numpy as np
 
 
 def insert_photo(conn, user_id, file_path, lat, lon, place_info=None, taken_at=None):
@@ -101,3 +102,132 @@ def update_importance(conn, photo_id, keyword_id, importance):
     with conn.cursor() as cur:
         cur.execute(sql, (importance, photo_id, keyword_id))
     conn.commit()
+
+
+# ── Embedding 관련 ──
+
+def insert_embedding(conn, photo_id, embedding):
+    """photo_embeddings 테이블에 벡터 INSERT (이미 존재하면 업데이트).
+
+    Parameters
+    ----------
+    conn : psycopg2 connection
+    photo_id : int
+    embedding : np.ndarray | list — 768차원 벡터
+    """
+    vec = embedding.tolist() if isinstance(embedding, np.ndarray) else embedding
+    sql = """
+        INSERT INTO photo_embeddings (photo_id, embedding)
+        VALUES (%s, %s)
+        ON CONFLICT (photo_id) DO UPDATE SET embedding = EXCLUDED.embedding
+    """
+    with conn.cursor() as cur:
+        cur.execute(sql, (photo_id, vec))
+    conn.commit()
+
+
+def get_embedding(conn, photo_id):
+    """photo_id의 임베딩 벡터 조회.
+
+    Returns
+    -------
+    np.ndarray | None — 768차원 벡터 (없으면 None)
+    """
+    sql = "SELECT embedding FROM photo_embeddings WHERE photo_id = %s"
+    with conn.cursor() as cur:
+        cur.execute(sql, (photo_id,))
+        row = cur.fetchone()
+        if row is None:
+            return None
+    return np.array(row[0])
+
+
+# ── Semantic Search ──
+
+def search_photos(conn, query_embedding, user_id, limit=5):
+    """벡터 유사도 기반 사진 검색 (cosine similarity).
+
+    Parameters
+    ----------
+    conn : psycopg2 connection
+    query_embedding : np.ndarray | list — 768차원 쿼리 벡터
+    user_id : int
+    limit : int — 반환할 최대 사진 수
+
+    Returns
+    -------
+    list[dict] — [{id, file_path, taken_at, city, building, similarity, ...}, ...]
+    """
+    vec = query_embedding.tolist() if isinstance(query_embedding, np.ndarray) else query_embedding
+    sql = """
+        SELECT p.id, p.file_path, p.taken_at,
+               p.state, p.city, p.district, p.road, p.building, p.full_address,
+               p.event_id,
+               1 - (pe.embedding <=> %s::vector) AS similarity
+        FROM photos p
+        JOIN photo_embeddings pe ON p.id = pe.photo_id
+        WHERE p.user_id = %s
+        ORDER BY pe.embedding <=> %s::vector
+        LIMIT %s
+    """
+    with conn.cursor() as cur:
+        cur.execute(sql, (vec, user_id, vec, limit))
+        cols = [desc[0] for desc in cur.description]
+        return [dict(zip(cols, row)) for row in cur.fetchall()]
+
+
+def search_photos_filtered(conn, query_embedding, user_id, limit=5,
+                           city=None, district=None, date_from=None, date_to=None):
+    """메타데이터 필터 + 벡터 유사도 검색 (Hybrid Search).
+
+    Parameters
+    ----------
+    conn : psycopg2 connection
+    query_embedding : np.ndarray | list — 768차원 쿼리 벡터
+    user_id : int
+    limit : int
+    city : str | None — 도시 필터 (LIKE 검색)
+    district : str | None — 동/구 필터 (LIKE 검색)
+    date_from : datetime | None — 시작 날짜
+    date_to : datetime | None — 종료 날짜
+
+    Returns
+    -------
+    list[dict]
+    """
+    vec = query_embedding.tolist() if isinstance(query_embedding, np.ndarray) else query_embedding
+
+    conditions = ["p.user_id = %s"]
+    params = [vec, user_id]
+
+    if city:
+        conditions.append("p.city LIKE %s")
+        params.append(f"%{city}%")
+    if district:
+        conditions.append("p.district LIKE %s")
+        params.append(f"%{district}%")
+    if date_from:
+        conditions.append("p.taken_at >= %s")
+        params.append(date_from)
+    if date_to:
+        conditions.append("p.taken_at <= %s")
+        params.append(date_to)
+
+    where = " AND ".join(conditions)
+    params.extend([vec, limit])
+
+    sql = f"""
+        SELECT p.id, p.file_path, p.taken_at,
+               p.state, p.city, p.district, p.road, p.building, p.full_address,
+               p.event_id,
+               1 - (pe.embedding <=> %s::vector) AS similarity
+        FROM photos p
+        JOIN photo_embeddings pe ON p.id = pe.photo_id
+        WHERE {where}
+        ORDER BY pe.embedding <=> %s::vector
+        LIMIT %s
+    """
+    with conn.cursor() as cur:
+        cur.execute(sql, params)
+        cols = [desc[0] for desc in cur.description]
+        return [dict(zip(cols, row)) for row in cur.fetchall()]

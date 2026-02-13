@@ -1,6 +1,6 @@
-# PhotoDiary — 사진 GPS 추출 & 장소 조회
+# PicStory — 사진 기반 추억 검색 RAG 챗봇
 
-사진의 EXIF 데이터에서 GPS 좌표를 추출하고, 역지오코딩으로 장소 이름(건물/가게 포함)을 조회합니다.
+사진의 EXIF 메타데이터(GPS, 촬영 시각)를 추출하고, 역지오코딩으로 장소 정보를 조회한 뒤, 벡터 임베딩 기반 시맨틱 검색으로 자연어 질문에 맞는 사진을 찾아주는 서비스입니다.
 
 ## 환경 설정
 
@@ -56,14 +56,20 @@ DB_PASSWORD=password
 ## 프로젝트 구조
 
 ```
-├── db/                  — DB 스키마 + CRUD
-│   ├── schema.py        — DDL 정의 & get_connection()
-│   └── crud.py          — photos 테이블 CRUD 함수
-├── pipeline/            — 사진 처리 파이프라인
-│   ├── geocoder.py      — 역지오코딩 (Google/Naver/Nominatim)
-│   ├── extract_gps.py   — EXIF GPS 추출 + 장소 조회
-│   └── save_to_db.py    — GPS 추출 → 역지오코딩 → DB 저장
-├── .env                 — API 키 & DB 접속 정보 (gitignore)
+├── db/                          — DB 스키마 + CRUD
+│   ├── schema.py                — DDL 정의 & get_connection()
+│   └── crud.py                  — photos CRUD + embedding 저장/검색
+├── pipeline/                    — 사진 처리 파이프라인
+│   ├── geocoder.py              — 역지오코딩 (Google/Naver/Nominatim)
+│   ├── extract_gps.py           — EXIF GPS 추출 + 장소 조회
+│   ├── save_to_db.py            — GPS 추출 → 역지오코딩 → DB 저장
+│   ├── embedder.py              — 임베딩 모듈 (e5-base, 768차원)
+│   ├── save_embeddings.py       — 사진 메타데이터 → 벡터 → DB 저장
+│   └── search_test.py           — 시맨틱 검색 테스트 스크립트
+├── docs/
+│   ├── db-design.md             — DB 설계 문서
+│   └── embedding-model.md       — 임베딩 모델 선정 이유
+├── .env                         — API 키 & DB 접속 정보 (gitignore)
 ├── requirements.txt
 └── README.md
 ```
@@ -74,39 +80,70 @@ DB_PASSWORD=password
 사진 파일 (.jpeg/.jpg/.png/.heic)
   │
   ▼
-extract_gps.py — EXIF에서 GPS 좌표 + 촬영 시각(taken_at) 추출
+[1] extract_gps.py — EXIF에서 GPS 좌표 + 촬영 시각 추출
   │
   ▼
-geocoder.py — GPS 좌표 → 역지오코딩 → PlaceInfo (주소, 건물명 등)
+[2] geocoder.py — GPS 좌표 → 역지오코딩 → PlaceInfo (주소, 건물명 등)
   │
   ▼
-crud.py — photos 테이블에 INSERT (좌표, 장소, 촬영 시각)
+[3] crud.py — photos 테이블에 INSERT (좌표, 장소, 촬영 시각)
+  │
+  ▼
+[4] embedder.py — 키워드 + 장소 메타데이터 → e5-base → 768차원 벡터
+  │
+  ▼
+[5] crud.py — photo_embeddings 테이블에 벡터 저장
+  │
+  ▼
+[검색] 사용자 쿼리 → 벡터 변환 → pgvector cosine 유사도 → top-K 사진 반환
 ```
 
-`save_to_db.py`가 위 세 단계를 순서대로 실행하는 진입점입니다.
+- `save_to_db.py`가 [1]~[3]을 실행합니다.
+- `save_embeddings.py`가 [4]~[5]를 실행합니다.
 
 > **참고: file_path**
 > 현재는 로컬 절대 경로를 그대로 DB에 저장합니다.
 > 배포 시에는 S3 등에 업로드 후 URL을 저장하도록 변경 예정이며,
-> `save_to_db.py`에 업로드 단계만 추가하면 됩니다. (`crud.py`, `extract_gps.py` 변경 없음)
+> `save_to_db.py`에 업로드 단계만 추가하면 됩니다.
 
 ## 실행
 
-### GPS 추출만 (DB 저장 없이)
+### 1. GPS 추출만 (DB 저장 없이)
 ```bash
 source .venv/bin/activate
 python -m pipeline.extract_gps
 ```
 
-### GPS 추출 + DB 저장
+### 2. GPS 추출 + DB 저장
 ```bash
 source .venv/bin/activate
 python -m pipeline.save_to_db
 ```
 
-DB에 저장된 결과 확인:
+### 3. 임베딩 벡터 생성 + 저장
+DB에 저장된 사진의 메타데이터를 벡터로 변환하여 `photo_embeddings` 테이블에 저장합니다.
+```bash
+source .venv/bin/activate
+python -m pipeline.save_embeddings
+```
+
+### 4. 시맨틱 검색 테스트
+자연어 쿼리로 사진을 검색합니다.
+```bash
+# 단발 검색
+python -m pipeline.search_test "추어탕 먹은 사진"
+
+# 메타데이터 필터 + 검색
+python -m pipeline.search_test "피자 먹은 사진" --city 부산
+
+# 대화형 모드
+python -m pipeline.search_test
+```
+
+### DB 확인
 ```bash
 psql -d photodiary -c "SELECT id, file_path, latitude, longitude, city, building FROM photos;"
+psql -d photodiary -c "SELECT COUNT(*) FROM photo_embeddings;"
 ```
 
 API 키 없이 실행하면 Nominatim(무료)으로 fallback됩니다. (건물/가게 이름 미지원)
