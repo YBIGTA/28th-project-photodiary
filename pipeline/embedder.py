@@ -22,31 +22,44 @@ def get_model():
     return _model
 
 
-def build_photo_text(keywords: list[str], place_parts: dict | None = None) -> str:
-    """사진의 키워드 + 장소 정보를 하나의 텍스트로 조합.
+def build_photo_text(
+    keywords: list[str],
+    place_parts: dict | None = None,
+    caption: str | None = None,
+) -> str:
+    """사진의 키워드 + 장면 캡션 + 장소 정보를 하나의 텍스트로 조합.
 
     Parameters
     ----------
     keywords : list[str]
         사진에서 추출된 키워드 목록 (RAM++ 등)
-        예: ["피자", "크리스마스트리", "사람"]
     place_parts : dict | None
-        장소 메타데이터. 키: state, city, district, building 등
-        예: {"city": "부산광역시", "district": "해운대구", "building": "이재모피자"}
+        장소 메타데이터
+    caption : str | None
+        Moondream 2가 생성한 장면 설명 캡션
 
     Returns
     -------
-    str — "passage: 피자 크리스마스트리 사람 부산광역시 해운대구 이재모피자"
+    str — "passage: keyword1 keyword2 | caption text | 부산광역시 해운대구"
     """
-    parts = list(keywords)
+    segments = []
+
+    if keywords:
+        segments.append(" ".join(keywords))
+
+    if caption and caption.strip():
+        segments.append(caption.strip())
 
     if place_parts:
+        place_tokens = []
         for key in ("state", "city", "district", "road", "building"):
             val = place_parts.get(key)
             if val:
-                parts.append(val)
+                place_tokens.append(val)
+        if place_tokens:
+            segments.append(" ".join(place_tokens))
 
-    text = " ".join(parts)
+    text = " | ".join(segments) if segments else ""
     return f"passage: {text}"
 
 
@@ -80,14 +93,18 @@ def embed_texts(texts: list[str]) -> np.ndarray:
     return model.encode(texts, normalize_embeddings=True)
 
 
-def embed_photo(keywords: list[str], place_parts: dict | None = None) -> np.ndarray:
-    """사진 1장의 키워드+장소 → 768차원 벡터.
+def embed_photo(
+    keywords: list[str],
+    place_parts: dict | None = None,
+    caption: str | None = None,
+) -> np.ndarray:
+    """사진 1장의 키워드+캡션+장소 → 768차원 벡터.
 
     Returns
     -------
     np.ndarray — shape (768,)
     """
-    text = build_photo_text(keywords, place_parts)
+    text = build_photo_text(keywords, place_parts, caption)
     return embed_texts([text])[0]
 
 

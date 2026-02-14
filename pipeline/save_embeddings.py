@@ -66,21 +66,24 @@ def main():
                 "building": photo.get("building"),
             }
 
-            # 키워드도 장소 정보도 없으면 스킵
+            # Moondream 캡션 가져오기
+            caption = photo.get("caption") or ""
+
+            # 키워드도 장소 정보도 캡션도 없으면 스킵
             has_place = any(v for v in place_parts.values())
-            if not keywords and not has_place:
-                print(f"  [SKIP] photo_id={photo_id}: 키워드/장소 정보 없음")
+            if not keywords and not has_place and not caption:
+                print(f"  [SKIP] photo_id={photo_id}: 키워드/장소/캡션 정보 없음")
                 skipped += 1
                 continue
 
-            # 벡터 변환 + 저장
-            vec = embed_photo(keywords, place_parts)
+            # 벡터 변환 + 저장 (키워드 + 캡션 + 장소 통합)
+            vec = embed_photo(keywords, place_parts, caption)
             insert_embedding(conn, photo_id, vec)
 
             kw_str = ", ".join(keywords[:3]) if keywords else "(없음)"
+            cap_str = caption[:40] + "…" if len(caption) > 40 else caption or "(없음)"
             city = photo.get("city") or ""
-            building = photo.get("building") or ""
-            print(f"  [OK] photo_id={photo_id} | 키워드: {kw_str} | {city} {building}")
+            print(f"  [OK] photo_id={photo_id} | 키워드: {kw_str} | 캡션: {cap_str} | {city}")
             saved += 1
 
         print(f"\n{'='*60}")

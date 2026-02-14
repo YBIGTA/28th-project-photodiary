@@ -1,4 +1,6 @@
-"""photos 테이블 CRUD 함수 + embedding 관련 함수"""
+"""photos 테이블 CRUD 함수 + embedding 관련 함수 + 키워드 관련 함수"""
+
+from __future__ import annotations
 
 from pipeline.geocoder import PlaceInfo
 import numpy as np
@@ -53,7 +55,7 @@ def get_photo(conn, photo_id):
         SELECT id, user_id, file_path, taken_at,
                latitude, longitude,
                state, city, district, road, building, full_address,
-               event_id, created_at
+               caption, event_id, created_at
         FROM photos
         WHERE id = %s
     """
@@ -72,7 +74,7 @@ def list_photos(conn, user_id, limit=100):
         SELECT id, user_id, file_path, taken_at,
                latitude, longitude,
                state, city, district, road, building, full_address,
-               event_id, created_at
+               caption, event_id, created_at
         FROM photos
         WHERE user_id = %s
         ORDER BY taken_at DESC, id DESC
@@ -82,6 +84,14 @@ def list_photos(conn, user_id, limit=100):
         cur.execute(sql, (user_id, limit))
         cols = [desc[0] for desc in cur.description]
         return [dict(zip(cols, row)) for row in cur.fetchall()]
+
+
+def update_caption(conn, photo_id: int, caption: str):
+    """사진의 Moondream 캡션 업데이트."""
+    sql = "UPDATE photos SET caption = %s WHERE id = %s"
+    with conn.cursor() as cur:
+        cur.execute(sql, (caption, photo_id))
+    conn.commit()
 
 
 def update_event_id(conn, photo_id, event_id):
@@ -102,6 +112,80 @@ def update_importance(conn, photo_id, keyword_id, importance):
     with conn.cursor() as cur:
         cur.execute(sql, (importance, photo_id, keyword_id))
     conn.commit()
+
+
+# ── 키워드 관련 ──
+
+def insert_keyword(conn, name: str, category: str) -> int:
+    """keywords 테이블에 키워드 INSERT (이미 존재하면 id 반환)."""
+    sql = """
+        INSERT INTO keywords (name, category)
+        VALUES (%s, %s)
+        ON CONFLICT (name) DO UPDATE SET name = EXCLUDED.name
+        RETURNING id
+    """
+    with conn.cursor() as cur:
+        cur.execute(sql, (name, category))
+        keyword_id = cur.fetchone()[0]
+    conn.commit()
+    return keyword_id
+
+
+def link_photo_keyword(conn, photo_id: int, keyword_id: int, importance: float = 1.0):
+    """photo_keywords 테이블에 사진-키워드 연결 (이미 존재하면 importance 업데이트)."""
+    sql = """
+        INSERT INTO photo_keywords (photo_id, keyword_id, importance)
+        VALUES (%s, %s, %s)
+        ON CONFLICT (photo_id, keyword_id)
+        DO UPDATE SET importance = EXCLUDED.importance
+    """
+    with conn.cursor() as cur:
+        cur.execute(sql, (photo_id, keyword_id, importance))
+    conn.commit()
+
+
+def bulk_insert_photo_keywords(
+    conn, photo_id: int, keyword_data: list[tuple[str, str, float]],
+) -> int:
+    """한 사진의 키워드를 한번에 INSERT (트랜잭션 1회)."""
+    if not keyword_data:
+        return 0
+    saved = 0
+    with conn.cursor() as cur:
+        for name, category, importance in keyword_data:
+            cur.execute(
+                """INSERT INTO keywords (name, category) VALUES (%s, %s)
+                ON CONFLICT (name) DO UPDATE SET name = EXCLUDED.name RETURNING id""",
+                (name, category),
+            )
+            keyword_id = cur.fetchone()[0]
+            cur.execute(
+                """INSERT INTO photo_keywords (photo_id, keyword_id, importance)
+                VALUES (%s, %s, %s)
+                ON CONFLICT (photo_id, keyword_id) DO UPDATE SET importance = EXCLUDED.importance""",
+                (photo_id, keyword_id, importance),
+            )
+            saved += 1
+    conn.commit()
+    return saved
+
+
+def delete_photo_keywords(conn, photo_id: int) -> int:
+    """사진의 기존 키워드 연결 전부 삭제 (재추출 시 사용)."""
+    sql = "DELETE FROM photo_keywords WHERE photo_id = %s"
+    with conn.cursor() as cur:
+        cur.execute(sql, (photo_id,))
+        deleted = cur.rowcount
+    conn.commit()
+    return deleted
+
+
+def get_photo_keyword_count(conn, photo_id: int) -> int:
+    """사진에 연결된 키워드 수 조회."""
+    sql = "SELECT COUNT(*) FROM photo_keywords WHERE photo_id = %s"
+    with conn.cursor() as cur:
+        cur.execute(sql, (photo_id,))
+        return cur.fetchone()[0]
 
 
 # ── Embedding 관련 ──
