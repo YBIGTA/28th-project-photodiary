@@ -61,9 +61,17 @@ CREATE TABLE IF NOT EXISTS photos (
     road         TEXT,
     building     TEXT,
     full_address TEXT,
+    caption      TEXT,
     event_id     INTEGER REFERENCES events(id) ON DELETE SET NULL,
     created_at   TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
+-- caption 컬럼 마이그레이션 (이미 테이블이 존재하는 경우)
+DO $$ BEGIN
+    ALTER TABLE photos ADD COLUMN IF NOT EXISTS caption TEXT;
+EXCEPTION
+    WHEN duplicate_column THEN NULL;
+END $$;
 
 -- 3. keywords
 CREATE TABLE IF NOT EXISTS keywords (
