@@ -6,7 +6,8 @@ from pipeline.geocoder import PlaceInfo
 import numpy as np
 
 
-def insert_photo(conn, user_id, file_path, lat, lon, place_info=None, taken_at=None):
+def insert_photo(conn, user_id, file_path, lat, lon, place_info=None, taken_at=None,
+                 commit=True):
     """
     photos 테이블에 한 장 INSERT.
 
@@ -18,6 +19,7 @@ def insert_photo(conn, user_id, file_path, lat, lon, place_info=None, taken_at=N
     lat, lon : float | None  — 위도/경도
     place_info : PlaceInfo | None
     taken_at : datetime | None — 촬영 시각
+    commit : bool — False면 커밋을 호출자에게 위임한다.
 
     Returns
     -------
@@ -45,7 +47,8 @@ def insert_photo(conn, user_id, file_path, lat, lon, place_info=None, taken_at=N
             state, city, district, road, building, full_address,
         ))
         photo_id = cur.fetchone()[0]
-    conn.commit()
+    if commit:
+        conn.commit()
     return photo_id
 
 
@@ -86,23 +89,144 @@ def list_photos(conn, user_id, limit=100):
         return [dict(zip(cols, row)) for row in cur.fetchall()]
 
 
-def update_caption(conn, photo_id: int, caption: str):
-    """사진의 Moondream 캡션 업데이트."""
-    sql = "UPDATE photos SET caption = %s WHERE id = %s"
+def list_unclustered_photos(conn, user_id, limit=1000):
+    """event_id가 없는 사진 목록을 시간순으로 조회한다."""
+    sql = """
+        SELECT id AS photo_id, user_id, file_path, taken_at,
+               latitude, longitude,
+               state, city, district, road, building, full_address,
+               event_id, created_at
+        FROM photos
+        WHERE user_id = %s
+          AND event_id IS NULL
+        ORDER BY taken_at ASC, id ASC
+        LIMIT %s
+    """
     with conn.cursor() as cur:
-        cur.execute(sql, (caption, photo_id))
-    conn.commit()
+        cur.execute(sql, (user_id, limit))
+        cols = [desc[0] for desc in cur.description]
+        return [dict(zip(cols, row)) for row in cur.fetchall()]
 
 
-def update_event_id(conn, photo_id, event_id):
+def get_last_event(conn, user_id):
+    """사용자의 가장 최근 이벤트 1건을 조회한다 (GPS 유효 사진 수 포함)."""
+    sql = """
+        SELECT e.id, e.user_id, e.started_at, e.ended_at,
+               e.primary_location, e.photo_count,
+               (SELECT COUNT(*) FROM photos p
+                WHERE p.event_id = e.id
+                  AND p.latitude IS NOT NULL
+                  AND p.longitude IS NOT NULL) AS gps_photo_count
+        FROM events e
+        WHERE e.user_id = %s
+        ORDER BY COALESCE(e.ended_at, e.started_at) DESC, e.id DESC
+        LIMIT 1
+    """
+    with conn.cursor() as cur:
+        cur.execute(sql, (user_id,))
+        row = cur.fetchone()
+        if row is None:
+            return None
+        cols = [desc[0] for desc in cur.description]
+    return dict(zip(cols, row))
+
+
+def insert_events(conn, events, commit=True):
+    """
+    events 테이블에 신규 이벤트를 INSERT하고 event_ref -> event_id 매핑을 반환한다.
+
+    Parameters
+    ----------
+    events : list[dict]
+        cluster_events 결과 중 existing_event_id가 None인 이벤트 목록
+    commit : bool — False면 커밋을 호출자에게 위임한다.
+    """
+    if not events:
+        return {}
+
+    sql = """
+        INSERT INTO events
+            (user_id, started_at, ended_at, primary_location, photo_count)
+        VALUES (%s, %s, %s, %s, %s)
+        RETURNING id
+    """
+
+    event_id_map = {}
+    with conn.cursor() as cur:
+        for event in events:
+            cur.execute(
+                sql,
+                (
+                    event["user_id"],
+                    event["started_at"],
+                    event["ended_at"],
+                    event["primary_location"],
+                    event["photo_count"],
+                ),
+            )
+            inserted_event_id = cur.fetchone()[0]
+            event_id_map[event["event_ref"]] = inserted_event_id
+    if commit:
+        conn.commit()
+    return event_id_map
+
+
+def update_existing_event(conn, event_id, ended_at, primary_location, photo_count,
+                          commit=True):
+    """
+    기존 이벤트의 메타데이터를 갱신한다 (증분 클러스터링 병합 시 사용).
+
+    Parameters
+    ----------
+    conn : psycopg2 connection
+    event_id : int
+    ended_at : datetime — 갱신된 종료 시각
+    primary_location : str | None — 갱신된 대표 좌표 ("lat,lon")
+    photo_count : int — 갱신된 총 사진 수
+    commit : bool — False면 커밋을 호출자에게 위임한다.
+    """
+    sql = """
+        UPDATE events
+        SET ended_at = %s, primary_location = %s, photo_count = %s
+        WHERE id = %s
+    """
+    with conn.cursor() as cur:
+        cur.execute(sql, (ended_at, primary_location, photo_count, event_id))
+    if commit:
+        conn.commit()
+
+
+def update_event_id(conn, photo_id, event_id, commit=True):
     """사진의 event_id 업데이트"""
     sql = "UPDATE photos SET event_id = %s WHERE id = %s"
     with conn.cursor() as cur:
         cur.execute(sql, (event_id, photo_id))
-    conn.commit()
+    if commit:
+        conn.commit()
 
 
-def update_importance(conn, photo_id, keyword_id, importance):
+def update_photo_event_ids(conn, photo_event_updates, commit=True):
+    """
+    photos.event_id 일괄 업데이트.
+
+    Parameters
+    ----------
+    photo_event_updates : list[tuple[int, int | str]]
+        [(event_id, photo_id), ...]
+    commit : bool — False면 커밋을 호출자에게 위임한다.
+    """
+    if not photo_event_updates:
+        return 0
+
+    sql = "UPDATE photos SET event_id = %s WHERE id = %s"
+    with conn.cursor() as cur:
+        cur.executemany(sql, photo_event_updates)
+    if commit:
+        conn.commit()
+    return len(photo_event_updates)
+
+
+def update_importance(conn, photo_id, keyword_id, importance, commit=True):
     """photo_keywords 테이블의 importance 점수 업데이트"""
     sql = """
         UPDATE photo_keywords
@@ -111,7 +235,8 @@ def update_importance(conn, photo_id, keyword_id, importance):
     """
     with conn.cursor() as cur:
         cur.execute(sql, (importance, photo_id, keyword_id))
-    conn.commit()
+    if commit:
+        conn.commit()
 
 
 # ── 키워드 관련 ──
@@ -190,7 +315,7 @@ def get_photo_keyword_count(conn, photo_id: int) -> int:
 
 # ── Embedding 관련 ──
 
-def insert_embedding(conn, photo_id, embedding):
+def insert_embedding(conn, photo_id, embedding, commit=True):
     """photo_embeddings 테이블에 벡터 INSERT (이미 존재하면 업데이트).
 
     Parameters
@@ -198,6 +323,7 @@ def insert_embedding(conn, photo_id, embedding):
     conn : psycopg2 connection
     photo_id : int
     embedding : np.ndarray | list — 768차원 벡터
+    commit : bool — False면 커밋을 호출자에게 위임한다.
     """
     vec = embedding.tolist() if isinstance(embedding, np.ndarray) else embedding
     sql = """
@@ -207,7 +333,8 @@ def insert_embedding(conn, photo_id, embedding):
     """
     with conn.cursor() as cur:
         cur.execute(sql, (photo_id, vec))
-    conn.commit()
+    if commit:
+        conn.commit()
 
 
 def get_embedding(conn, photo_id):
