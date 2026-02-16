@@ -17,7 +17,7 @@ from db.crud import (
     update_photo_event_ids,
 )
 from db.schema import get_connection
-from pipeline.event_clustering import cluster_events, resolve_photo_event_updates
+from pipeline.steps.03_clustering import cluster_events, resolve_photo_event_updates
 
 USER_ID = 1
 

@@ -1,7 +1,14 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
+import { api } from '../../api/client';
 import { Search } from 'lucide-react';
 
 export default function AlbumView({ onSearchFocus }) {
+    const [lastEvent, setLastEvent] = useState(null);
+
+    useEffect(() => {
+        api.getLastEvent().then(setLastEvent).catch(console.error);
+    }, []);
+
     return (
         <div className="h-full flex flex-col bg-slate-50">
             <div className="p-4 bg-white border-b border-slate-200 sticky top-0 z-10">
@@ -16,9 +23,21 @@ export default function AlbumView({ onSearchFocus }) {
                 </div>
             </div>
 
-            <div className="flex-1 flex flex-col items-center justify-center text-slate-400">
-                <p className="mb-2">아직 구현되지 않은 기능입니다.</p>
-                <p className="text-sm">검색창을 누르면 챗봇으로 이동합니다.</p>
+            <div className="flex-1 overflow-y-auto p-4">
+                {lastEvent ? (
+                    <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100">
+                        <h2 className="text-xl font-bold text-slate-800 mb-2">최근 기록</h2>
+                        <div className="space-y-2 text-slate-600">
+                            <p><span className="font-semibold">날짜:</span> {new Date(lastEvent.started_at).toLocaleDateString()}</p>
+                            <p><span className="font-semibold">위치:</span> {lastEvent.primary_location || '알 수 없음'}</p>
+                            <p><span className="font-semibold">사진:</span> {lastEvent.photo_count}장</p>
+                        </div>
+                    </div>
+                ) : (
+                    <div className="flex flex-col items-center justify-center h-full text-slate-400">
+                        <p>저장된 이벤트가 없습니다.</p>
+                    </div>
+                )}
             </div>
         </div>
     );

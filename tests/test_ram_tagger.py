@@ -37,12 +37,12 @@ def test_imports():
         "PIL": "from PIL import Image",
         "ram.models (ram_plus)": "from ram.models import ram_plus",
         "ram.get_transform": "from ram import get_transform",
-        "pipeline.ram_tagger": "from pipeline.ram_tagger import extract_tags, extract_tags_batch, TagResult, ImageTagResult",
+        "pipeline.core.ram_tagger": "from pipeline.core.ram_tagger import extract_tags, extract_tags_batch, TagResult, ImageTagResult",
     }
 
     # DB 의존성 (선택 - psycopg2 없어도 핵심 테스트 가능)
     optional_checks = {
-        "pipeline.save_keywords": "from pipeline.save_keywords import categorize_tag",
+        "pipeline.steps.02_tagging": "from pipeline.steps.02_tagging import categorize_tag",
         "db.crud (키워드 함수)": "from db.crud import insert_keyword, link_photo_keyword, bulk_insert_photo_keywords",
     }
 
@@ -72,7 +72,7 @@ def test_device():
     sep("2단계: 디바이스 감지")
 
     import torch
-    from pipeline.ram_tagger import _select_device
+    from pipeline.core.ram_tagger import _select_device
 
     device = _select_device()
     print(f"  PyTorch 버전: {torch.__version__}")
@@ -92,7 +92,7 @@ def test_categorize():
     sep("3단계: 카테고리 분류 테스트")
 
     try:
-        from pipeline.save_keywords import categorize_tag
+        from pipeline.steps.02_tagging import categorize_tag
     except ImportError:
         # psycopg2 없을 때 — 인라인 구현으로 테스트
         _PERSON = {"person", "man", "woman", "boy", "girl", "child", "baby", "people"}
@@ -172,7 +172,7 @@ def download_test_image() -> str:
 def test_model_load():
     sep("5단계: RAM++ 모델 로드")
 
-    from pipeline.ram_tagger import load_model
+    from pipeline.core.ram_tagger import load_model
 
     start = time.time()
     model, transform = load_model()
@@ -192,7 +192,7 @@ def test_model_load():
 def test_single_inference(image_path: str):
     sep("6단계: 단일 이미지 추론")
 
-    from pipeline.ram_tagger import extract_tags, print_result
+    from pipeline.core.ram_tagger import extract_tags, print_result
 
     start = time.time()
     result = extract_tags(image_path)
@@ -221,7 +221,7 @@ def test_single_inference(image_path: str):
 def test_batch_inference(image_path: str):
     sep("7단계: 배치 추론 테스트")
 
-    from pipeline.ram_tagger import extract_tags_batch
+    from pipeline.core.ram_tagger import extract_tags_batch
 
     # 동일 이미지 3장으로 배치 테스트
     paths = [image_path] * 3

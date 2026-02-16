@@ -12,7 +12,7 @@ load_dotenv()
 
 from db.schema import get_connection
 from db.crud import list_photos, insert_embedding
-from pipeline.embedder import embed_photo
+from pipeline.core.embedder import embed_photo
 
 USER_ID = 1  # 단일 사용자 고정
 

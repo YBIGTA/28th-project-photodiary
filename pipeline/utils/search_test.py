@@ -15,7 +15,7 @@ load_dotenv()
 
 from db.schema import get_connection
 from db.crud import search_photos, search_photos_filtered
-from pipeline.embedder import embed_query
+from pipeline.core.embedder import embed_query
 
 USER_ID = 1
 

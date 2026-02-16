@@ -32,7 +32,7 @@ from db.crud import (
     get_photo_keyword_count,
     update_caption,
 )
-from pipeline.ram_tagger import extract_tags_batch, ImageTagResult, TagResult
+from pipeline.core.ram_tagger import extract_tags_batch, ImageTagResult, TagResult
 
 USER_ID = 1  # 단일 사용자 고정
 
@@ -217,8 +217,8 @@ def process_photos(
 
             # RAM++ 모델 VRAM 해제 (Moondream 로드 전)
             if run_moondream:
-                from pipeline.ram_tagger import _model as ram_model
-                import pipeline.ram_tagger as ram_mod
+                from pipeline.core.ram_tagger import _model as ram_model
+                import pipeline.core.ram_tagger as ram_mod
                 if ram_mod._model is not None:
                     del ram_mod._model
                     ram_mod._model = None
@@ -235,7 +235,7 @@ def process_photos(
         if run_moondream:
             print(f"\n── Phase 2: Moondream 캡션 생성 ──")
 
-            from pipeline.moondream_captioner import (
+            from pipeline.core.moondream import (
                 generate_captions_batch,
                 unload_model as unload_moondream,
             )
