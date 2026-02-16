@@ -56,26 +56,32 @@ def main() -> None:
             else:
                 merged_events.append(event)
 
-        inserted_event_ids_by_ref = insert_events(conn, new_events)
+        # P0: 트랜잭션 원자성 — 모든 쓰기를 commit=False로 수행 후 마지막에 일괄 커밋
+        inserted_event_ids_by_ref = insert_events(conn, new_events, commit=False)
 
-        # 기존 이벤트에 병합된 경우 메타데이터 갱신
         for event in merged_events:
             existing_id = event["existing_event_id"]
-            # 기존 이벤트의 원래 photo_count를 더해야 정확한 값이 됨
-            original_count = last_event.get("photo_count", 0) if last_event else 0
+            # P0: Null Safety — photo_count가 None일 수 있으므로 or 0 방어
+            original_count = (last_event.get("photo_count") or 0) if last_event else 0
             update_existing_event(
                 conn,
                 event_id=existing_id,
                 ended_at=event["ended_at"],
                 primary_location=event["primary_location"],
                 photo_count=original_count + event["photo_count"],
+                commit=False,
             )
 
         photo_event_updates = resolve_photo_event_updates(
             cluster_result,
             inserted_event_ids_by_ref,
         )
-        updated_photo_count = update_photo_event_ids(conn, photo_event_updates)
+        updated_photo_count = update_photo_event_ids(
+            conn, photo_event_updates, commit=False,
+        )
+
+        # 모든 쓰기 성공 후 일괄 커밋
+        conn.commit()
 
         print(
             f"{len(new_events)}개의 이벤트 생성, "
