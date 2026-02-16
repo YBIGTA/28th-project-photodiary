@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Send, X, Calendar, MapPin } from 'lucide-react';
+import { Send, X, Calendar, MapPin, Image as ImageIcon } from 'lucide-react';
+import { api } from '../../api/client';
 
 export default function ChatView() {
     const [messages, setMessages] = useState([
@@ -20,7 +21,7 @@ export default function ChatView() {
         scrollToBottom();
     }, [messages, isTyping]);
 
-    const handleSend = () => {
+    const handleSend = async () => {
         if (!input.trim()) return;
 
         // User message
@@ -29,27 +30,45 @@ export default function ChatView() {
         setInput('');
         setIsTyping(true);
 
-        // Simulated AI response
-        setTimeout(() => {
-            // Mock data for demo
-            const mockPhotos = [
-                { id: 101, url: 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4', tags: ['Restaurant', 'Pasta', 'Friends'] },
-                { id: 102, url: 'https://images.unsplash.com/photo-1555396273-367ea4eb4db5', tags: ['Food', 'Dinner'] },
-                { id: 103, url: 'https://images.unsplash.com/photo-1529333166437-7750a6dd5a70', tags: ['Party', 'Wine'] }
-            ];
+        try {
+            // Call API
+            const results = await api.searchPhotos(input);
+
+            // Transform results for UI
+            const photos = results.map(p => ({
+                id: p.id,
+                url: api.getPhotoImageUrl(p.id),
+                tags: [p.city, p.building || p.road].filter(Boolean), // Basic tags from simple metadata
+                caption: p.caption,
+                date: new Date(p.taken_at).toLocaleDateString()
+            }));
 
             const aiMsg = {
                 id: Date.now() + 1,
                 role: 'assistant',
-                content: '지난달 합정에서 친구들과 파스타를 먹었던 기록이 있습니다.',
-                photos: mockPhotos
+                content: photos.length > 0
+                    ? `관련된 추억을 ${photos.length}장 찾았습니다.`
+                    : '관련된 사진을 찾지 못했습니다.',
+                photos: photos
             };
 
             setMessages(prev => [...prev, aiMsg]);
-            setGalleryPhotos(mockPhotos);
-            setShowGallery(true); // Open gallery when photos are returned
+            if (photos.length > 0) {
+                setGalleryPhotos(photos);
+                setShowGallery(true);
+            }
+        } catch (error) {
+            console.error("Search failed:", error);
+            const errorMsg = {
+                id: Date.now() + 1,
+                role: 'assistant',
+                content: '검색 중 오류가 발생했습니다.',
+                photos: []
+            };
+            setMessages(prev => [...prev, errorMsg]);
+        } finally {
             setIsTyping(false);
-        }, 1500);
+        }
     };
 
     return (
@@ -91,8 +110,8 @@ export default function ChatView() {
                     <div key={msg.id} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                         <div
                             className={`max-w-[80%] md:max-w-[60%] rounded-2xl px-4 py-3 shadow-sm ${msg.role === 'user'
-                                    ? 'bg-sky-500 text-white rounded-br-none'
-                                    : 'bg-white text-slate-800 border border-slate-100 rounded-bl-none'
+                                ? 'bg-sky-500 text-white rounded-br-none'
+                                : 'bg-white text-slate-800 border border-slate-100 rounded-bl-none'
                                 }`}
                         >
                             <p className="whitespace-pre-wrap">{msg.content}</p>
