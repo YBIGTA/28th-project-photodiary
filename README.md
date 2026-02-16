@@ -1,268 +1,184 @@
-# PicStory — 사진 기반 추억 검색 RAG 챗봇
+# PicTrace - Person 2 (Event Clustering)
 
-사진의 EXIF 메타데이터(GPS, 촬영 시각)를 추출하고, 역지오코딩으로 장소 정보를 조회한 뒤, 벡터 임베딩 기반 시맨틱 검색으로 자연어 질문에 맞는 사진을 찾아주는 서비스입니다.
+이 문서는 **Person 2(이벤트 클러스터링)** 담당 구현 내용을 기준으로 작성한 최종 README입니다.
+핵심 목표는 사진 메타데이터를 이벤트 단위로 묶고, DB와 안전하게 동기화하는 것입니다.
 
+---
 
+## 1) 담당한 범위
 
+- 시공간 기반 이벤트 분리 로직 구현
+- 증분 클러스터링(미처리 사진만 대상) 파이프라인 구현
+- DB 반영(`events` INSERT + `photos.event_id` UPDATE) 연동
 
+- Phase 2 품질 고도화
+  - Config 기반 파라미터 관리
+  - 병합 시 가중 평균 중심점(Weighted Centroid)
+  - Stay(체류) 예외 규칙
+  - Null Safety 및 트랜잭션 원자성 보강
 
+`save_to_db.py`는 기존 데이터 수집 역할로 유지하고,
+클러스터링은 별도 엔트리포인트 `pipeline/run_clustering.py`에서 수행합니다.
 
+---
 
+## 2) 파일별 구현 내용
 
-# PhotoDiary — Event Clustering 모듈
+### `pipeline/event_clustering.py`
 
-이 문서는 **이벤트 클러스터링 담당 업무 범위**만 정리합니다.
-목표는 시간순 사진 메타데이터를 받아 의미 있는 이벤트 단위로 묶고,
-결과를 DB `events` 스키마와 맞는 형태로 반환하는 것입니다.
+이벤트 클러스터링 핵심 모듈입니다.
 
-## 담당 범위
+주요 구현:
+- `ClusterConfig`
+  - `time_split_minutes` (기본 120)
+  - `distance_split_meters` (기본 500)
+  - `stay_distance_meters` (기본 50)
+  - `stay_time_split_minutes` (기본 720, 12시간)
+- `haversine_distance(...)`
+  - 지구 곡률을 고려한 거리 계산
+- `_should_split(...)`
+  - 거리 기준 분리: anchor 대비 `>= distance_split_meters`
+  - Stay 판정: anchor 근처(`< stay_distance_meters`)면 시간 임계값 완화
+  - GPS 결측 시 거리 계산 스킵, 시간 기준만 적용
+- `cluster_events(...)`
+  - 기본 클러스터링 + `last_event` 기반 증분 merge 판단
+  - 반환 구조:
+    - `events`: 이벤트 payload 리스트
+    - `photo_event_links`: 사진-이벤트 매핑 리스트
+- `resolve_photo_event_updates(...)`
+  - `events` INSERT 결과와 매핑 정보를 결합해
+    `photos.event_id` 업데이트용 튜플 생성
 
-- 구현 파일: `pipeline/event_clustering.py`
-- 핵심 함수
-  - `haversine_distance(lat1, lon1, lat2, lon2) -> float`
-  - `cluster_events(photo_df, user_id=1, ...) -> list[dict]`
-  - `build_mock_photo_data() -> pd.DataFrame`
+Phase 2 반영 포인트:
+- 병합 시 중심점 계산은 기존 이벤트와 신규 이벤트를 **가중 평균**으로 결합
+- 가중치는 GPS 유효 개수 기준(`gps_photo_count` 우선)
+- `gps_photo_count=0`과 `None`을 구분해서 처리(Null Safety)
 
-## 클러스터링 규칙 (현재 기준)
+---
 
-사진을 `timestamp` 기준 오름차순 정렬한 뒤, `P_i`를 이전 데이터와 비교하여 이벤트 분리 여부를 판단합니다.
+### `pipeline/run_clustering.py`
 
-1. **시간 분리 (연속성 체크)**
-   - `P_i.timestamp - P_{i-1}.timestamp >= 120분` 이면 분리
+증분 이벤트 클러스터링 실행 스크립트입니다.
 
-2. **공간 분리 (앵커 기준 체크)**
-   - 이벤트의 첫 사진을 Anchor로 두고,
-   - `distance(Anchor, P_i) >= 500m` 이면 분리
+동작 순서:
+1. `list_unclustered_photos()`로 `event_id IS NULL` 사진 조회
+2. `get_last_event()`로 마지막 이벤트 조회
+3. `cluster_events(..., last_event=...)` 실행
+4. 신규 이벤트만 `insert_events()`로 `events` INSERT
+5. 기존 이벤트 병합 건은 `update_existing_event()`로 메타데이터 갱신
+6. `resolve_photo_event_updates()` + `update_photo_event_ids()`로 사진 event_id 일괄 업데이트
+7. 로그 출력
+   - `N개의 이벤트 생성, M개의 이벤트 병합, K개의 사진 업데이트 완료`
 
-### 왜 Anchor 기준인가?
+트랜잭션 처리:
+- 쓰기 함수들을 `commit=False`로 호출
+- 마지막에 `conn.commit()` 1회
+- 오류 시 `rollback()`으로 부분 반영 방지
 
-`distance(P_{i-1}, P_i)`만 쓰면, 100m씩 조금씩 이동하는 경우 누적 1km 이상 이동했어도 분리가 늦어지는
-**creeping distance 문제**가 발생할 수 있습니다.
-Anchor 기준은 누적 이동을 안정적으로 감지합니다.
+---
 
-## 입력/출력 스펙
+### `db/crud.py`
 
-### 입력 DataFrame 필수 컬럼
+클러스터링 연동을 위해 아래 함수들을 추가/확장했습니다.
 
-- `photo_id`
-- `timestamp` (datetime 또는 파싱 가능한 문자열)
-- `latitude` (float)
-- `longitude` (float)
+추가 함수:
+- `list_unclustered_photos(conn, user_id, limit=1000)`
+- `get_last_event(conn, user_id)`
+  - `gps_photo_count` 계산 포함
+- `insert_events(conn, events, commit=True)`
+  - `event_ref -> event_id` 매핑 반환
+- `update_existing_event(conn, event_id, ended_at, primary_location, photo_count, commit=True)`
+- `update_photo_event_ids(conn, photo_event_updates, commit=True)`
 
-### 출력 스키마 (DB `events` 정합)
+개선:
+- 주요 쓰기 함수에 `commit=True` 기본 파라미터를 두어
+  단건 사용/배치 트랜잭션 모두 대응 가능하게 함
 
-각 이벤트는 아래 키를 가집니다.
+---
 
-- `user_id` (int)
-- `started_at` (datetime)
-- `ended_at` (datetime)
-- `primary_location` (str, `"lat,lon"`)
-- `photo_count` (int)
+## 3) DB 스키마 제약 준수
 
-디버깅/검증을 위해 현재는 아래 키도 함께 반환합니다.
+- `events.primary_location`은 기존 스키마를 유지하여 문자열 `"lat,lon"` 형식으로 저장
+- 새로운 DB 컬럼 추가 없이 구현
+- 증분 merge를 위해 필요한 `gps_photo_count`는 조회 시 서브쿼리로 계산
 
-- `photo_ids` (list)
+---
 
-## 실행 방법
+## 4) 실행 방법
 
-### 1) 의존성 설치
+## 4-1. 환경 준비
 
 ```bash
 pip install -r requirements.txt
 ```
 
-### 2) Mock Data 테스트 실행
+필요 환경변수(`.env`):
+- `DATABASE_URL` 또는
+- `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, `DB_PASSWORD`
+
+---
+
+## 4-2. 클러스터링 로직 단독 테스트 (Mock)
 
 ```bash
 python -m pipeline.event_clustering
 ```
 
-실행 시, 모의 사진 데이터를 클러스터링한 JSON 결과를 출력합니다.
+출력:
+- `events`
+- `photo_event_links`
 
-## 예시 출력 (요약)
+---
 
-```json
-[
-  {
-    "user_id": 1,
-    "started_at": "2026-02-13T09:00:00+00:00",
-    "ended_at": "2026-02-13T09:50:00+00:00",
-    "primary_location": "37.498165,127.027637",
-    "photo_count": 3,
-    "photo_ids": ["p1", "p2", "p3"]
-  }
-]
-```
+## 4-3. 실제 DB 증분 클러스터링 실행
 
-## 파라미터 튜닝 포인트
-
-- `TIME_SPLIT_MINUTES` 기본값: `120`
-- `DISTANCE_SPLIT_METERS` 기본값: `500`
-
-`cluster_events(...)` 호출 시 인자로 덮어쓸 수 있어 지역/도메인별 실험이 가능합니다.
-
-<<<<<<< HEAD
-```
-├── db/                          — DB 스키마 + CRUD
-│   ├── schema.py                — DDL 정의 & get_connection()
-│   └── crud.py                  — photos CRUD + embedding 저장/검색
-├── pipeline/                    — 사진 처리 파이프라인
-│   ├── geocoder.py              — 역지오코딩 (Google/Naver/Nominatim)
-│   ├── extract_gps.py           — EXIF GPS 추출 + 장소 조회
-│   ├── save_to_db.py            — GPS 추출 → 역지오코딩 → DB 저장
-│   ├── embedder.py              — 임베딩 모듈 (e5-base, 768차원)
-│   ├── save_embeddings.py       — 사진 메타데이터 → 벡터 → DB 저장
-│   └── search_test.py           — 시맨틱 검색 테스트 스크립트
-├── docs/
-│   ├── db-design.md             — DB 설계 문서
-│   └── embedding-model.md       — 임베딩 모델 선정 이유
-├── .env                         — API 키 & DB 접속 정보 (gitignore)
-├── requirements.txt
-└── README.md
-```
-=======
-## 현재 가정/제약
->>>>>>> fd6532a (feat: 시공간 클러스터링 모듈 구현 및 문서화)
-
-- 위치 좌표가 없는 행(`latitude/longitude` 결측)에 대한 별도 처리 로직은 아직 없습니다.
-- `primary_location`은 이벤트 내 평균 좌표 문자열입니다.
-  - 실제 주소/행정동 대표값이 필요하면 후처리(역지오코딩) 단계가 추가로 필요합니다.
-- 이 모듈은 **클러스터링 결과 반환**까지 담당하며,
-  DB INSERT 및 `photos.event_id` 업데이트는 별도 파이프라인에서 수행합니다.
-
-<<<<<<< HEAD
-```
-사진 파일 (.jpeg/.jpg/.png/.heic)
-  │
-  ▼
-[1] extract_gps.py — EXIF에서 GPS 좌표 + 촬영 시각 추출
-  │
-  ▼
-[2] geocoder.py — GPS 좌표 → 역지오코딩 → PlaceInfo (주소, 건물명 등)
-  │
-  ▼
-[3] crud.py — photos 테이블에 INSERT (좌표, 장소, 촬영 시각)
-  │
-  ▼
-[4] embedder.py — 키워드 + 장소 메타데이터 → e5-base → 768차원 벡터
-  │
-  ▼
-[5] crud.py — photo_embeddings 테이블에 벡터 저장
-  │
-  ▼
-[검색] 사용자 쿼리 → 벡터 변환 → pgvector cosine 유사도 → top-K 사진 반환
-```
-
-- `save_to_db.py`가 [1]~[3]을 실행합니다.
-- `save_embeddings.py`가 [4]~[5]를 실행합니다.
-
-> **참고: file_path**
-> 현재는 로컬 절대 경로를 그대로 DB에 저장합니다.
-> 배포 시에는 S3 등에 업로드 후 URL을 저장하도록 변경 예정이며,
-> `save_to_db.py`에 업로드 단계만 추가하면 됩니다.
-
-## 실행
-
-### 1. GPS 추출만 (DB 저장 없이)
 ```bash
-source .venv/bin/activate
-python -m pipeline.extract_gps
+python -m pipeline.run_clustering
 ```
 
-### 2. GPS 추출 + DB 저장
-```bash
-source .venv/bin/activate
-python -m pipeline.save_to_db
-```
+예상 로그:
+- `처리할 미클러스터 사진이 없습니다.`
+- 또는
+- `N개의 이벤트 생성, M개의 이벤트 병합, K개의 사진 업데이트 완료`
 
-### 3. 임베딩 벡터 생성 + 저장
-DB에 저장된 사진의 메타데이터를 벡터로 변환하여 `photo_embeddings` 테이블에 저장합니다.
-```bash
-source .venv/bin/activate
-python -m pipeline.save_embeddings
-```
+---
 
-### 4. 시맨틱 검색 테스트
-자연어 쿼리로 사진을 검색합니다.
-```bash
-# 단발 검색
-python -m pipeline.search_test "추어탕 먹은 사진"
+## 5) 입력/출력 계약 (핵심)
 
-# 메타데이터 필터 + 검색
-python -m pipeline.search_test "피자 먹은 사진" --city 부산
+### `cluster_events` 입력 DataFrame 필수 컬럼
+- `photo_id`
+- `timestamp`
+- `latitude`
+- `longitude`
 
-# 대화형 모드
-python -m pipeline.search_test
-```
+### `cluster_events` 반환 구조
+- `events`: DB 반영용 이벤트 목록
+  - `event_ref`, `existing_event_id`, `user_id`, `started_at`, `ended_at`, `primary_location`, `photo_count`, `photo_ids`
+- `photo_event_links`: 사진-이벤트 연결 목록
+  - `photo_id`, `event_ref`, `existing_event_id`
 
-### DB 확인
-```bash
-psql -d photodiary -c "SELECT id, file_path, latitude, longitude, city, building FROM photos;"
-psql -d photodiary -c "SELECT COUNT(*) FROM photo_embeddings;"
-```
+---
 
-API 키 없이 실행하면 Nominatim(무료)으로 fallback됩니다. (건물/가게 이름 미지원)
+## 6) 구현 의사결정 요약
 
-## API 키 발급
+- Anchor 기준 거리 비교로 creeping distance 문제 완화
+- Stay 규칙으로 장시간 체류를 불필요하게 분리하지 않음
+- 증분 처리(`last_event`)로 전체 재클러스터링 비용 절감
+- Null Safety(`None`/`0` 구분)로 극단 케이스 방어
+- 트랜잭션 일원화로 DB 일관성 보장
 
-### Google Maps (데모용)
+---
 
-1. [Google Cloud Console](https://console.cloud.google.com) 접속 & 로그인
-2. 상단 프로젝트 선택 → **새 프로젝트** 생성
-3. **결제** → 결제 계정 연결 (월 $200 무료 크레딧)
-4. **API 및 서비스** → **라이브러리**에서 아래 2개 활성화:
-   - **Geocoding API**
-   - **Places API (New)**
-5. **API 및 서비스** → **사용자 인증 정보** → **+ 사용자 인증 정보 만들기** → **API 키**
-6. (권장) 생성된 키 클릭 → API 제한 → Geocoding API, Places API (New)만 선택
+## 7) 빠른 점검 체크리스트
 
-### Naver Maps (프로덕션용)
+- `python -m pipeline.event_clustering` 실행 성공
+- `python -m pipeline.run_clustering` 실행 성공
+- 오류 발생 시 부분 반영 없이 rollback 확인
+- `events`와 `photos.event_id`가 동일 실행 단위로 동기화되는지 확인
 
-1. [Naver Cloud Platform](https://www.ncloud.com) 가입 & 로그인
-2. 콘솔 → **AI·NAVER API** → **Application 등록**
-3. **Maps** → **Reverse Geocoding** 선택 후 등록
-4. 발급된 Client ID / Client Secret을 `.env`에 입력
+---
 
+## 8) 참고
 
-## PostgreSQL 설치 방법
-```bash
-brew install postgresql@14  # 버전은 14 또는 최신 버전을 선택하세요.
-brew services start postgresql@14
-```
-
-## DBeaver 설치 방법 (macOS)
-DBeaver는 DB 내부 데이터를 표 형태로 편하게 보고 쿼리를 날릴 수 있게 해주는 도구입니다.
-1. **DBeaver 공식 다운로드 페이지**에 접속합니다.
-2. macOS (Apple Silicon / Intel) 중 건우님의 맥 프로세서(M1/M2/M3는 Apple Silicon)에 맞는 .dm g 파일을 다운로드합니다.
-3. 다운로드된 파일을 실행하고 DBeaver 아이콘을 Applications 폴더로 드래그하여 설치를 완료합니다.
-
-## DBeaver 연결 설정
-
-### 새 연결 만들기
-1. 상단 메뉴 **Database → New Database Connection** (또는 플러그 아이콘) 클릭
-2. **PostgreSQL** 선택 → **Next**
-3. 아래와 같이 입력:
-
-| 항목 | 값 |
-|------|-----|
-| Host | `localhost` |
-| Port | `5432` |
-| Database | `photodiary` |
-| Username | 본인 시스템 계정 (터미널에서 `whoami`로 확인) |
-| Password | (비워두기) |
-
-4. **Save password** 체크 → **Test Connection**으로 연결 확인 → **Finish**
-
-### 테이블 확인 경로
-```
-photodiary → Schemas → public → Tables
-```
-
-> **주의**: 기본 `postgres` 데이터베이스가 아닌 **`photodiary`** 데이터베이스로 연결해야 테이블이 보입니다. `postgres` DB의 Tables에는 아무것도 없으니 헷갈리지 않도록 주의하세요.
-=======
-## 다음 작업 제안
-
-- `events` INSERT + `photos.event_id` 매핑 트랜잭션 함수 추가
-- 결측 좌표/이상치 좌표에 대한 방어 로직 추가
-- 샘플 케이스 기반 단위 테스트 추가 (시간 경계, 거리 경계, creeping 케이스)
->>>>>>> fd6532a (feat: 시공간 클러스터링 모듈 구현 및 문서화)
+프로젝트의 다른 파이프라인(`extract_gps.py`, `geocoder.py`, `save_to_db.py`, `save_embeddings.py`)은
+다른 담당자 역할을 유지하고, 본 문서는 이벤트 클러스터링 구현 작업 결과 중심으로 작성했습니다.
