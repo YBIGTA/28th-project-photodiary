@@ -13,6 +13,9 @@ fairscale>=0.4
 ram @ git+https://github.com/xinyu1205/recognize-anything.git
 huggingface-hub>=0.20
 
+# ── S3 업로드 ──
+boto3>=1.28
+
 # ── Moondream 2 캡션 생성 (transformers + trust_remote_code) ──
 transformers>=4.44
 accelerate>=0.26
