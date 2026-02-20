@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Send, X, Calendar, MapPin, Image as ImageIcon } from 'lucide-react';
 import { api } from '../../api/client';
+import Lightbox from '../../components/common/Lightbox';
 
 export default function ChatView() {
     const [messages, setMessages] = useState([
@@ -10,7 +11,29 @@ export default function ChatView() {
     const [showGallery, setShowGallery] = useState(false);
     const [galleryPhotos, setGalleryPhotos] = useState([]);
     const [isTyping, setIsTyping] = useState(false);
+
+    // Lightbox State
+    const [lightboxOpen, setLightboxOpen] = useState(false);
+    const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0);
+
     const messagesEndRef = useRef(null);
+
+    const openLightbox = (index) => {
+        setCurrentPhotoIndex(index);
+        setLightboxOpen(true);
+    };
+
+    const closeLightbox = () => {
+        setLightboxOpen(false);
+    };
+
+    const nextPhoto = () => {
+        setCurrentPhotoIndex((prev) => (prev + 1) % galleryPhotos.length);
+    };
+
+    const prevPhoto = () => {
+        setCurrentPhotoIndex((prev) => (prev - 1 + galleryPhotos.length) % galleryPhotos.length);
+    };
 
     // Auto-scroll to bottom
     const scrollToBottom = () => {
@@ -88,8 +111,12 @@ export default function ChatView() {
 
                     {/* Horizontal Scroll Gallery */}
                     <div className="flex-1 overflow-x-auto p-4 flex items-center space-x-4">
-                        {galleryPhotos.map(photo => (
-                            <div key={photo.id} className="relative group shrink-0 h-full aspect-[4/5] md:aspect-video rounded-lg overflow-hidden cursor-pointer">
+                        {galleryPhotos.map((photo, index) => (
+                            <div
+                                key={photo.id}
+                                onClick={() => openLightbox(index)}
+                                className="relative group shrink-0 h-full aspect-[4/5] md:aspect-video rounded-lg overflow-hidden cursor-pointer"
+                            >
                                 <img src={photo.url} alt="memory" className="w-full h-full object-cover transition-transform group-hover:scale-105" />
                                 <div className="absolute inset-x-0 bottom-0 bg-black/60 p-2 opacity-0 group-hover:opacity-100 transition-opacity">
                                     <div className="flex flex-wrap gap-1">
@@ -105,7 +132,7 @@ export default function ChatView() {
             </div>
 
             {/* Chat Area */}
-            <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-slate-50">
+            <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-transparent">
                 {messages.map(msg => (
                     <div key={msg.id} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                         <div
@@ -154,7 +181,14 @@ export default function ChatView() {
                         placeholder="어떤 추억을 찾고 계신가요?"
                         value={input}
                         onChange={(e) => setInput(e.target.value)}
-                        onKeyDown={(e) => e.key === 'Enter' && handleSend()}
+                        onKeyDown={(e) => {
+                            // 한글 입력 시 조합(composition) 중인 상태에서 Enter를 누르면
+                            // 이벤트가 두 번 발생하는 현상을 방지합니다.
+                            if (e.key === 'Enter' && !e.nativeEvent.isComposing) {
+                                e.preventDefault();
+                                handleSend();
+                            }
+                        }}
                     />
                     <button
                         onClick={handleSend}
@@ -166,6 +200,16 @@ export default function ChatView() {
                     </button>
                 </div>
             </div>
+            {/* Lightbox */}
+            <Lightbox
+                isOpen={lightboxOpen}
+                onClose={closeLightbox}
+                photo={galleryPhotos[currentPhotoIndex]}
+                onNext={nextPhoto}
+                onPrev={prevPhoto}
+                hasNext={galleryPhotos.length > 1}
+                hasPrev={galleryPhotos.length > 1}
+            />
         </div>
     );
 }
