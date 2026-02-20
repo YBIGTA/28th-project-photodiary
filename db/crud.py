@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from pipeline.geocoder import PlaceInfo
+from pipeline.utils.geocoder import PlaceInfo
 import numpy as np
 
 
