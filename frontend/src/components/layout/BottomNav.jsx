@@ -3,39 +3,66 @@ import { MessageSquare, Image as ImageIcon, Plus, BookOpen } from 'lucide-react'
 
 export default function BottomNav({ activeView, onNavigate }) {
     return (
-        <div className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 pb-safe">
-            <div className="flex justify-around items-center px-2 py-3">
+        <div className="md:hidden fixed bottom-6 left-6 right-6 bg-white/80 backdrop-blur-xl border border-white/80 shadow-md rounded-[2rem] z-30 flex items-center justify-around px-4 py-3">
+            <div className="relative group flex justify-center w-12 h-12 items-center">
                 <button
                     onClick={() => onNavigate('album')}
-                    className={`flex flex-col items-center space-y-1 p-2 ${activeView === 'album' ? 'text-sky-600' : 'text-slate-500'
+                    className={`p-3 rounded-2xl transition-all duration-300 w-full h-full flex justify-center items-center ${activeView === 'album'
+                        ? 'bg-[#EAE5D9] text-[#B6694E] shadow-sm'
+                        : 'text-[#6B6653] hover:bg-[#F2EEE4]/50'
                         }`}
                 >
-                    <ImageIcon size={24} />
-                    <span className="text-xs font-medium">Album</span>
+                    <ImageIcon size={22} strokeWidth={activeView === 'album' ? 2.5 : 2} />
                 </button>
+                {/* 툴팁 */}
+                <span className="absolute bottom-full mb-3 px-2.5 py-1.5 bg-[#6B6653] text-[#FDFBF7] text-xs font-medium rounded-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-50 shadow-md flex flex-col items-center">
+                    Photos
+                    <div className="absolute -bottom-1 w-2 h-2 bg-[#6B6653] rotate-45"></div>
+                </span>
+            </div>
 
+            <div className="relative group flex justify-center w-12 h-12 items-center">
                 <button
                     onClick={() => onNavigate('memories')}
-                    className={`flex flex-col items-center space-y-1 p-2 ${activeView === 'memories' ? 'text-sky-600' : 'text-slate-500'
+                    className={`p-3 rounded-2xl transition-all duration-300 w-full h-full flex justify-center items-center ${activeView === 'memories'
+                        ? 'bg-[#EAE5D9] text-[#B6694E] shadow-sm'
+                        : 'text-[#6B6653] hover:bg-[#F2EEE4]/50'
                         }`}
                 >
-                    <BookOpen size={24} />
-                    <span className="text-xs font-medium">Memories</span>
+                    <BookOpen size={22} strokeWidth={activeView === 'memories' ? 2.5 : 2} />
                 </button>
+                {/* 툴팁 */}
+                <span className="absolute bottom-full mb-3 px-2.5 py-1.5 bg-[#6B6653] text-[#FDFBF7] text-xs font-medium rounded-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-50 shadow-md flex flex-col items-center">
+                    Memories
+                    <div className="absolute -bottom-1 w-2 h-2 bg-[#6B6653] rotate-45"></div>
+                </span>
+            </div>
 
-                {/* 중앙 업로드 플로팅 튼 */}
-                <button className="bg-sky-500 text-white p-3 rounded-full -mt-8 shadow-lg ring-4 ring-white">
-                    <Plus size={24} />
+            {/* 중앙 업로드 기능 - 위로 확장되는 버튼 */}
+            <div className="relative flex justify-center mx-2 w-12 h-12">
+                <button className="absolute bottom-0 group bg-[#D7AD7E] hover:bg-[#c49b6c] text-white w-full rounded-2xl shadow-sm transition-all duration-300 overflow-hidden flex flex-col items-center justify-end h-12 hover:h-[72px] pb-[10px]">
+                    <span className="text-[10px] uppercase tracking-widest font-bold mb-1 opacity-0 group-hover:opacity-100 transition-all duration-300 translate-y-2 group-hover:translate-y-0 pointer-events-none">
+                        Upload
+                    </span>
+                    <Plus size={24} strokeWidth={3} className="shrink-0" />
                 </button>
+            </div>
 
+            <div className="relative group flex justify-center w-12 h-12 items-center">
                 <button
                     onClick={() => onNavigate('chat')}
-                    className={`flex flex-col items-center space-y-1 p-2 ${activeView === 'chat' ? 'text-sky-600' : 'text-slate-500'
+                    className={`p-3 rounded-2xl transition-all duration-300 w-full h-full flex justify-center items-center ${activeView === 'chat'
+                        ? 'bg-[#EAE5D9] text-[#B6694E] shadow-sm'
+                        : 'text-[#6B6653] hover:bg-[#F2EEE4]/50'
                         }`}
                 >
-                    <MessageSquare size={24} />
-                    <span className="text-xs font-medium">Chat</span>
+                    <MessageSquare size={22} strokeWidth={activeView === 'chat' ? 2.5 : 2} />
                 </button>
+                {/* 툴팁 */}
+                <span className="absolute bottom-full mb-3 px-2.5 py-1.5 bg-[#6B6653] text-[#FDFBF7] text-xs font-medium rounded-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-50 shadow-md flex flex-col items-center">
+                    Chat
+                    <div className="absolute -bottom-1 w-2 h-2 bg-[#6B6653] rotate-45"></div>
+                </span>
             </div>
         </div>
     );

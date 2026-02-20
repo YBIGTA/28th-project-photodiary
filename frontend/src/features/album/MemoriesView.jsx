@@ -126,7 +126,7 @@ export default function MemoriesView() {
     }, []);
 
     return (
-        <div className="h-full flex flex-col bg-white overflow-y-auto w-full">
+        <div className="h-full flex flex-col bg-transparent overflow-y-auto w-full">
             {/* 상단 패딩 약간 */}
             <div className="p-4 md:p-8">
                 {events.length === 0 ? (

@@ -22,9 +22,9 @@ export default function AlbumView({ onSearchFocus }) {
     }, [photos]);
 
     return (
-        <div className="h-full flex flex-col bg-slate-50 relative">
+        <div className="h-full flex flex-col bg-transparent relative">
             {/* Sticky Search Bar Header */}
-            <div className="p-4 bg-white/80 backdrop-blur-md border-b border-slate-200 sticky top-0 z-10">
+            <div className="p-4 bg-[#FDFBF7]/80 backdrop-blur-md border-b border-black/5 sticky top-0 z-10">
                 <div className="relative max-w-2xl mx-auto">
                     <input
                         type="text"

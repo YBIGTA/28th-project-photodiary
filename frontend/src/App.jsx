@@ -14,7 +14,7 @@ function App() {
   };
 
   return (
-    <div className="flex w-full h-screen overflow-hidden bg-slate-50">
+    <div className="flex w-full h-screen overflow-hidden bg-[#FDFBF7]">
       {/* PC 사이드바 */}
       <Sidebar activeView={activeView} onNavigate={handleNavigate} />
 
