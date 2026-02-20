@@ -1,5 +1,5 @@
 import React from 'react';
-import { MessageSquare, Image as ImageIcon, Plus } from 'lucide-react';
+import { MessageSquare, Image as ImageIcon, Plus, BookOpen } from 'lucide-react';
 
 export default function BottomNav({ activeView, onNavigate }) {
     return (
@@ -14,6 +14,16 @@ export default function BottomNav({ activeView, onNavigate }) {
                     <span className="text-xs font-medium">Album</span>
                 </button>
 
+                <button
+                    onClick={() => onNavigate('memories')}
+                    className={`flex flex-col items-center space-y-1 p-2 ${activeView === 'memories' ? 'text-sky-600' : 'text-slate-500'
+                        }`}
+                >
+                    <BookOpen size={24} />
+                    <span className="text-xs font-medium">Memories</span>
+                </button>
+
+                {/* 중앙 업로드 플로팅 튼 */}
                 <button className="bg-sky-500 text-white p-3 rounded-full -mt-8 shadow-lg ring-4 ring-white">
                     <Plus size={24} />
                 </button>

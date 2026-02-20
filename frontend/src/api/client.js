@@ -1,4 +1,10 @@
 import axios from 'axios';
+import { mockApi } from './mockClient';
+
+// ==========================================
+// TOGGLE MOCK MODE HERE
+// ==========================================
+const USE_MOCK = true;
 
 const API_BASE_URL = 'http://localhost:8000/api';
 
@@ -9,7 +15,7 @@ const client = axios.create({
     },
 });
 
-export const api = {
+const realApi = {
     // Photos
     getPhotos: async (limit = 100) => {
         const response = await client.get('/photos/', { params: { limit } });
@@ -33,3 +39,10 @@ export const api = {
         return response.data;
     },
 };
+
+// Export either real or mock API
+export const api = USE_MOCK ? mockApi : realApi;
+
+if (USE_MOCK) {
+    console.warn("⚠️ [API] Application is running in MOCK mode. Real backend is ignored.");
+}
