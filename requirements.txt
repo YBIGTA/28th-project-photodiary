@@ -20,3 +20,6 @@ boto3>=1.28
 transformers>=4.44
 accelerate>=0.26
 einops>=0.8
+
+# ── Agent Router (LLM 의도 분류) ──
+openai>=1.0
