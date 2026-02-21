@@ -24,14 +24,32 @@
 ### 테이블 관계도
 
 ```
-photos ──< photo_keywords >── keywords
+users (신규)
   │
-  ├── photo_embeddings (1:1, vector 768차원)
+  ├── photos ──< photo_keywords >── keywords
+  │     │
+  │     ├── photo_embeddings (1:1, vector 768차원)
+  │     │
+  │     └──> events (N:1)
   │
-  └──> events (N:1)
-
-diaries (독립, user_id + diary_date unique)
+  └── diaries (user_id + diary_date unique)
 ```
+
+> users → photos/events/diaries 관계는 FK 없이 앱 레벨에서 user_id로 격리.
+
+---
+
+### users — 사용자
+
+| 컬럼 | 타입 | 제약 | 설명 |
+|---|---|---|---|
+| id | SERIAL | PK | |
+| email | TEXT | NOT NULL, UNIQUE | 로그인 이메일 |
+| username | TEXT | NOT NULL | 표시 이름 |
+| hashed_password | TEXT | NOT NULL | bcrypt 해시 |
+| created_at | TIMESTAMPTZ | NOT NULL, DEFAULT now() | 가입 시각 |
+
+> 기존 테이블의 `user_id` 컬럼에 FK를 소급 적용하지 않음. 앱 레벨에서 `WHERE user_id = %s`로 격리.
 
 ---
 
