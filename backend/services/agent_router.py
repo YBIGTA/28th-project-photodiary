@@ -147,13 +147,14 @@ SYSTEM_PROMPT = """\
 ━━━━━━━━━━━━━━━━━━━━━━━━━━
 출력 JSON 스키마 (이 형식을 정확히 따르세요)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━
+※ 값이 없는 필드는 반드시 JSON null (문자열 "null" 절대 금지) 을 사용하세요.
 {{
   "intent": "PHOTO_SEARCH | EVENT_RECALL | DIARY | GENERAL",
   "keywords": ["키워드1", "키워드2"],
-  "location": "장소명 또는 null",
-  "date_from": "YYYY-MM-DD 또는 null",
-  "date_to": "YYYY-MM-DD 또는 null",
-  "diary_action": "create | retrieve | null"
+  "location": "장소명" or null,
+  "date_from": "YYYY-MM-DD" or null,
+  "date_to": "YYYY-MM-DD" or null,
+  "diary_action": "create" or "retrieve" or null
 }}"""
 
 
@@ -162,8 +163,14 @@ SYSTEM_PROMPT = """\
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 def _last_weekend(today: date) -> tuple[date, date]:
-    """가장 최근 토요일~일요일을 반환한다."""
-    days_since_sunday = (today.weekday() + 1) % 7
+    """가장 최근 토요일~일요일을 반환한다.
+
+    오늘이 일요일이면 어제(토) + 오늘(일)을 이번 주말로 반환한다.
+    """
+    weekday = today.weekday()
+    if weekday == 6:  # 오늘이 일요일
+        return today - timedelta(days=1), today
+    days_since_sunday = (weekday + 1) % 7
     if days_since_sunday == 0:
         days_since_sunday = 7
     last_sun = today - timedelta(days=days_since_sunday)
@@ -329,6 +336,10 @@ class AgentRouter:
                 temperature=0.0,
             )
             raw = json.loads(response.choices[0].message.content)
+            # LLM이 JSON null 대신 문자열 "null"을 반환하는 경우 방어
+            for key in list(raw.keys()):
+                if raw[key] == "null":
+                    raw[key] = None
             return RouteResult(**raw)
 
         except Exception as e:
