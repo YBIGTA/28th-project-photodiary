@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 import os
 
-from backend.routers import photos, events
+from backend.routers import photos, events, chat
 
 app = FastAPI(title="PicTrace API", description="Backend for PicTrace Photo Diary")
 
@@ -19,11 +19,12 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
-]
+)
 
 # Include Routers
 app.include_router(photos.router, prefix="/api/photos", tags=["photos"])
 app.include_router(events.router, prefix="/api/events", tags=["events"])
+app.include_router(chat.router, prefix="/api/chat", tags=["chat"])
 
 # Mount Static Files (for serving uploaded images)
 # Assumes photos are stored in 'data/photos' or similar. 

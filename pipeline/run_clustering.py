@@ -6,6 +6,7 @@
 """
 
 import sys
+from importlib import import_module
 
 import pandas as pd
 
@@ -17,7 +18,10 @@ from db.crud import (
     update_photo_event_ids,
 )
 from db.schema import get_connection
-from pipeline.steps.03_clustering import cluster_events, resolve_photo_event_updates
+
+_clustering_module = import_module("pipeline.steps.03_clustering")
+cluster_events = _clustering_module.cluster_events
+resolve_photo_event_updates = _clustering_module.resolve_photo_event_updates
 
 USER_ID = 1
 

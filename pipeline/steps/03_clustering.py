@@ -1,8 +1,16 @@
 """
 시계열 사진 메타데이터를 이벤트 단위로 분리하는 모듈.
 
-실행:
-    python -m pipeline.event_clustering
+주의:
+    파일명이 숫자(03_)로 시작하여 Python 네이밍 규칙상 단독 모듈 실행이 불가능합니다.
+    반드시 아래 방법 중 하나로 실행하세요.
+
+    1) pipeline/run_clustering.py 를 통한 실행 (권장):
+           python -m pipeline.run_clustering
+
+    2) importlib 동적 로딩:
+           import importlib
+           mod = importlib.import_module("pipeline.steps.03_clustering")
 
 입력 DataFrame 필수 컬럼:
     - photo_id
@@ -23,12 +31,19 @@
 from __future__ import annotations
 
 import json
+import logging
 import math
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from typing import Any
 
 import pandas as pd
+
+logger = logging.getLogger(__name__)
+
+# 타임스탬프 이상값 기준
+_TS_FUTURE_TOLERANCE = pd.Timedelta(days=1)   # 현재 시각 + 1일 초과면 미래 오류로 간주
+_TS_ANCIENT_THRESHOLD = pd.Timestamp("1990-01-01", tz="UTC")  # 디지털 카메라 보급 이전
 
 
 EARTH_RADIUS_METERS = 6_371_000
@@ -80,6 +95,19 @@ def _has_valid_coords(photo: dict) -> bool:
     return not _is_missing_coord(photo.get("latitude")) and not _is_missing_coord(photo.get("longitude"))
 
 
+def _find_anchor(event_photos: list[dict]) -> dict:
+    """이벤트 내 GPS 좌표가 있는 첫 번째 사진을 anchor 로 반환.
+
+    GPS 사진이 한 장도 없으면 첫 번째 사진을 반환한다.
+    이벤트 첫 사진에 GPS 가 없더라도 이후 GPS 사진을 anchor 로 활용할 수 있어
+    거리 기반 분리 판정의 정확도가 높아진다.
+    """
+    for photo in event_photos:
+        if _has_valid_coords(photo):
+            return photo
+    return event_photos[0]
+
+
 def _parse_primary_location(primary_location: str | None) -> tuple[float | None, float | None]:
     if not primary_location:
         return None, None
@@ -99,9 +127,44 @@ def _validate_input(df: pd.DataFrame) -> pd.DataFrame:
         raise ValueError(f"입력 DataFrame에 필수 컬럼이 없습니다: {missing_text}")
 
     validated = df.copy()
-    validated["timestamp"] = pd.to_datetime(validated["timestamp"], utc=True)
+    # errors="coerce" : 파싱 불가한 값은 NaT 로 변환 (기존 코드는 에러 전파)
+    validated["timestamp"] = pd.to_datetime(validated["timestamp"], utc=True, errors="coerce")
     validated["latitude"] = pd.to_numeric(validated["latitude"], errors="coerce")
     validated["longitude"] = pd.to_numeric(validated["longitude"], errors="coerce")
+
+    # ── edge case 1: 타임스탬프 없음(NaT) ──
+    nat_mask = validated["timestamp"].isna()
+    if nat_mask.any():
+        logger.warning(
+            "타임스탬프가 없거나 파싱 불가한 사진 %d장 제외: photo_id=%s",
+            nat_mask.sum(),
+            validated.loc[nat_mask, "photo_id"].tolist(),
+        )
+        validated = validated[~nat_mask]
+
+    # ── edge case 2: 미래 시간 (카메라 날짜 오류) ──
+    now_utc = pd.Timestamp.now(tz="UTC")
+    future_mask = validated["timestamp"] > now_utc + _TS_FUTURE_TOLERANCE
+    if future_mask.any():
+        logger.warning(
+            "미래 시간으로 설정된 사진 %d장 제외 (카메라 날짜 오류 의심): photo_id=%s, timestamps=%s",
+            future_mask.sum(),
+            validated.loc[future_mask, "photo_id"].tolist(),
+            validated.loc[future_mask, "timestamp"].tolist(),
+        )
+        validated = validated[~future_mask]
+
+    # ── edge case 3: 디지털 카메라 보급 이전 날짜 (카메라 초기화 의심) ──
+    ancient_mask = validated["timestamp"] < _TS_ANCIENT_THRESHOLD
+    if ancient_mask.any():
+        logger.warning(
+            "1990년 이전 타임스탬프 사진 %d장 제외 (카메라 날짜 초기화 의심): photo_id=%s, timestamps=%s",
+            ancient_mask.sum(),
+            validated.loc[ancient_mask, "photo_id"].tolist(),
+            validated.loc[ancient_mask, "timestamp"].tolist(),
+        )
+        validated = validated[~ancient_mask]
+
     validated = validated.sort_values("timestamp").reset_index(drop=True)
     return validated
 
@@ -284,8 +347,9 @@ def cluster_events(
     for idx in range(start_idx, len(df)):
         previous = df.iloc[idx - 1].to_dict()
         current = df.iloc[idx].to_dict()
-        # DESIGN-1: 병합 중이면 기존 이벤트의 anchor 사용
-        anchor_photo = merge_anchor if merge_anchor is not None else current_event[0]
+        # DESIGN-1: 병합 중이면 기존 이벤트의 anchor 사용,
+        # 그 외에는 현재 이벤트 내 GPS 있는 첫 사진을 anchor 로 사용
+        anchor_photo = merge_anchor if merge_anchor is not None else _find_anchor(current_event)
 
         if _should_split(
             previous=previous,
