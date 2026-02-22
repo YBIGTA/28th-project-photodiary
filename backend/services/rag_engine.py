@@ -85,13 +85,15 @@ class RAGEngine:
         conn = get_connection()
         try:
             # 필터 조건이 하나라도 있으면 Hybrid Search
-            if result.location or date_from or date_to:
+            city, district = _resolve_location(result.location)
+            if city or district or date_from or date_to:
                 photos = search_photos_filtered(
                     conn,
                     query_embedding,
                     user_id,
                     limit=20,
-                    city=result.location,
+                    city=city,
+                    district=district,
                     date_from=date_from,
                     date_to=date_to,
                 )
@@ -151,12 +153,14 @@ class RAGEngine:
 
         conn = get_connection()
         try:
+            city, district = _resolve_location(result.location)
             photos = search_photos_filtered(
                 conn,
                 query_embedding,
                 user_id,
                 limit=30,
-                city=result.location,
+                city=city,
+                district=district,
                 date_from=date_from,
                 date_to=date_to,
             )
@@ -380,6 +384,22 @@ class RAGEngine:
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 #  헬퍼 함수
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+_DISTRICT_SUFFIXES = ("구", "동", "읍", "면", "리", "로", "길")
+
+
+def _resolve_location(location: str | None) -> tuple[str | None, str | None]:
+    """location 문자열을 (city, district) 로 분류.
+
+    한국 행정구역 접미사(구·동·읍·면·리·로·길)로 끝나면 district,
+    그 외에는 city 로 판단한다.
+    """
+    if not location:
+        return None, None
+    if location.endswith(_DISTRICT_SUFFIXES):
+        return None, location
+    return location, None
+
 
 def _parse_date(date_str: str | None) -> datetime | None:
     """YYYY-MM-DD 문자열을 datetime 으로 변환. 실패 시 None."""
