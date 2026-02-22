@@ -39,6 +39,19 @@ export const mockApi = {
         return photo ? photo.url : 'https://via.placeholder.com/400';
     },
 
+    // Chat
+    chat: async (query, userId = 1) => {
+        console.warn("⚠️ [MOCK API] Chat with query:", query);
+        await delay(1200);
+        const photos = MOCK_PHOTOS.slice(0, 3);
+        return {
+            intent: "PHOTO_SEARCH",
+            params: { keywords: [query], location: null, date_from: null, date_to: null, diary_action: null },
+            answer: `"${query}"에 관련된 추억을 찾았어요! 총 ${photos.length}장의 사진이 있네요.`,
+            photos: photos.map(p => ({ id: p.id, file_path: p.url, taken_at: p.taken_at, city: p.city, building: p.building, caption: p.caption, event_id: null, similarity: 0.9 })),
+        };
+    },
+
     // Events
     getLastEvent: async () => {
         await delay(300);

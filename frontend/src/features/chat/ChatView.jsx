@@ -54,25 +54,22 @@ export default function ChatView() {
         setIsTyping(true);
 
         try {
-            // Call API
-            const results = await api.searchPhotos(input);
+            const data = await api.chat(input);
 
-            // Transform results for UI
-            const photos = results.map(p => ({
+            const photos = (data.photos || []).map(p => ({
                 id: p.id,
                 url: api.getPhotoImageUrl(p.id),
-                tags: [p.city, p.building || p.road].filter(Boolean), // Basic tags from simple metadata
+                tags: [p.city, p.building || p.road].filter(Boolean),
                 caption: p.caption,
-                date: new Date(p.taken_at).toLocaleDateString()
+                date: p.taken_at ? new Date(p.taken_at).toLocaleDateString() : ''
             }));
 
             const aiMsg = {
                 id: Date.now() + 1,
                 role: 'assistant',
-                content: photos.length > 0
-                    ? `관련된 추억을 ${photos.length}장 찾았습니다.`
-                    : '관련된 사진을 찾지 못했습니다.',
-                photos: photos
+                content: data.answer || '응답을 생성하지 못했습니다.',
+                photos: photos,
+                intent: data.intent,
             };
 
             setMessages(prev => [...prev, aiMsg]);
@@ -81,11 +78,11 @@ export default function ChatView() {
                 setShowGallery(true);
             }
         } catch (error) {
-            console.error("Search failed:", error);
+            console.error("Chat failed:", error);
             const errorMsg = {
                 id: Date.now() + 1,
                 role: 'assistant',
-                content: '검색 중 오류가 발생했습니다.',
+                content: '응답 생성 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.',
                 photos: []
             };
             setMessages(prev => [...prev, errorMsg]);

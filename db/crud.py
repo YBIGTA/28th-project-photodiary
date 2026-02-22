@@ -462,6 +462,26 @@ def get_photo_keyword_count(conn, photo_id: int) -> int:
         return cur.fetchone()[0]
 
 
+def get_photo_keywords_batch(conn, photo_ids: list[int]) -> dict[int, list[str]]:
+    """photo_id 목록에 대해 {photo_id: [keyword_name, ...]} 를 배치 조회."""
+    if not photo_ids:
+        return {}
+    placeholders = ",".join(["%s"] * len(photo_ids))
+    sql = f"""
+        SELECT pk.photo_id, k.name
+        FROM photo_keywords pk
+        JOIN keywords k ON pk.keyword_id = k.id
+        WHERE pk.photo_id IN ({placeholders})
+        ORDER BY pk.photo_id, pk.importance DESC
+    """
+    result: dict[int, list[str]] = {pid: [] for pid in photo_ids}
+    with conn.cursor() as cur:
+        cur.execute(sql, photo_ids)
+        for photo_id, keyword_name in cur.fetchall():
+            result[photo_id].append(keyword_name)
+    return result
+
+
 # ── Embedding 관련 ──
 
 def insert_embedding(conn, photo_id, embedding, commit=True):
@@ -537,7 +557,8 @@ def search_photos(conn, query_embedding, user_id, limit=5):
 
 
 def search_photos_filtered(conn, query_embedding, user_id, limit=5,
-                           city=None, district=None, date_from=None, date_to=None):
+                           state=None, city=None, district=None,
+                           date_from=None, date_to=None):
     """메타데이터 필터 + 벡터 유사도 검색 (Hybrid Search).
 
     Parameters
@@ -546,6 +567,7 @@ def search_photos_filtered(conn, query_embedding, user_id, limit=5,
     query_embedding : np.ndarray | list — 768차원 쿼리 벡터
     user_id : int
     limit : int
+    state : str | None — 광역시/도 필터 (LIKE 검색)
     city : str | None — 도시 필터 (LIKE 검색)
     district : str | None — 동/구 필터 (LIKE 검색)
     date_from : datetime | None — 시작 날짜
@@ -560,6 +582,9 @@ def search_photos_filtered(conn, query_embedding, user_id, limit=5,
     conditions = ["p.user_id = %s"]
     params = [vec, user_id]
 
+    if state:
+        conditions.append("p.state LIKE %s")
+        params.append(f"%{state}%")
     if city:
         conditions.append("p.city LIKE %s")
         params.append(f"%{city}%")
@@ -589,5 +614,59 @@ def search_photos_filtered(conn, query_embedding, user_id, limit=5,
     """
     with conn.cursor() as cur:
         cur.execute(sql, params)
+        cols = [desc[0] for desc in cur.description]
+        return [dict(zip(cols, row)) for row in cur.fetchall()]
+
+
+# ── Diary 관련 ──
+
+def insert_diary(conn, user_id: int, diary_date, content: str, commit=True) -> int:
+    """diaries 테이블에 일기 INSERT (이미 존재하면 내용 업데이트).
+
+    Returns
+    -------
+    int — 생성/갱신된 diary id
+    """
+    sql = """
+        INSERT INTO diaries (user_id, diary_date, content)
+        VALUES (%s, %s, %s)
+        ON CONFLICT (user_id, diary_date)
+        DO UPDATE SET content = EXCLUDED.content
+        RETURNING id
+    """
+    with conn.cursor() as cur:
+        cur.execute(sql, (user_id, diary_date, content))
+        diary_id = cur.fetchone()[0]
+    if commit:
+        conn.commit()
+    return diary_id
+
+
+def get_diary(conn, user_id: int, diary_date) -> dict | None:
+    """특정 날짜의 일기 1건 조회."""
+    sql = """
+        SELECT id, user_id, diary_date, content, created_at
+        FROM diaries
+        WHERE user_id = %s AND diary_date = %s
+    """
+    with conn.cursor() as cur:
+        cur.execute(sql, (user_id, diary_date))
+        row = cur.fetchone()
+        if row is None:
+            return None
+        cols = [desc[0] for desc in cur.description]
+    return dict(zip(cols, row))
+
+
+def get_diaries_by_range(conn, user_id: int, date_from, date_to) -> list[dict]:
+    """날짜 범위의 일기 목록 조회 (오래된 순)."""
+    sql = """
+        SELECT id, user_id, diary_date, content, created_at
+        FROM diaries
+        WHERE user_id = %s AND diary_date >= %s AND diary_date <= %s
+        ORDER BY diary_date ASC
+    """
+    with conn.cursor() as cur:
+        cur.execute(sql, (user_id, date_from, date_to))
         cols = [desc[0] for desc in cur.description]
         return [dict(zip(cols, row)) for row in cur.fetchall()]

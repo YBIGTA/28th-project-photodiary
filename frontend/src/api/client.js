@@ -33,6 +33,12 @@ const realApi = {
         return `${API_BASE_URL}/photos/${photoId}/image`;
     },
 
+    // Chat
+    chat: async (query, userId = 1) => {
+        const response = await client.post('/chat/', { query, user_id: userId });
+        return response.data;
+    },
+
     // Events
     getLastEvent: async () => {
         const response = await client.get('/events/last');
