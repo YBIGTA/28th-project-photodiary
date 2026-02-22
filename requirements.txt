@@ -23,3 +23,13 @@ einops>=0.8
 
 # ── Agent Router (LLM 의도 분류) ──
 openai>=1.0
+
+# ── JWT 인증 ──
+python-jose[cryptography]>=3.3
+passlib[bcrypt]>=1.7
+
+# ── FastAPI 추가 ──
+fastapi>=0.100
+uvicorn>=0.20
+python-multipart>=0.0.6
+email-validator>=2.0

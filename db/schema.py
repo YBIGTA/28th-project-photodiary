@@ -37,6 +37,15 @@ EXCEPTION
     WHEN duplicate_object THEN NULL;
 END $$;
 
+-- 0. users
+CREATE TABLE IF NOT EXISTS users (
+    id              SERIAL PRIMARY KEY,
+    email           TEXT NOT NULL UNIQUE,
+    username        TEXT NOT NULL,
+    hashed_password TEXT NOT NULL,
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
 -- 1. events (photos 보다 먼저 생성 — FK 참조 대상)
 CREATE TABLE IF NOT EXISTS events (
     id          SERIAL PRIMARY KEY,
