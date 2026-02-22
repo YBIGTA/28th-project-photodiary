@@ -1,9 +1,158 @@
-"""photos 테이블 CRUD 함수 + embedding 관련 함수 + 키워드 관련 함수"""
+"""photos 테이블 CRUD 함수 + embedding 관련 함수 + 키워드 관련 함수 + 유저/일기 관련 함수"""
 
 from __future__ import annotations
 
 from pipeline.utils.geocoder import PlaceInfo
 import numpy as np
+
+
+# ── User 관련 ──
+
+def create_user(conn, email: str, username: str, hashed_password: str) -> int:
+    """users 테이블에 새 사용자 INSERT → user id 반환."""
+    sql = """
+        INSERT INTO users (email, username, hashed_password)
+        VALUES (%s, %s, %s)
+        RETURNING id
+    """
+    with conn.cursor() as cur:
+        cur.execute(sql, (email, username, hashed_password))
+        user_id = cur.fetchone()[0]
+    conn.commit()
+    return user_id
+
+
+def get_user_by_email(conn, email: str) -> dict | None:
+    """이메일로 사용자 조회 → dict (없으면 None)."""
+    sql = "SELECT id, email, username, hashed_password, created_at FROM users WHERE email = %s"
+    with conn.cursor() as cur:
+        cur.execute(sql, (email,))
+        row = cur.fetchone()
+        if row is None:
+            return None
+        cols = [desc[0] for desc in cur.description]
+    return dict(zip(cols, row))
+
+
+def get_user_by_id(conn, user_id: int) -> dict | None:
+    """user_id로 사용자 조회 → dict (없으면 None)."""
+    sql = "SELECT id, email, username, created_at FROM users WHERE id = %s"
+    with conn.cursor() as cur:
+        cur.execute(sql, (user_id,))
+        row = cur.fetchone()
+        if row is None:
+            return None
+        cols = [desc[0] for desc in cur.description]
+    return dict(zip(cols, row))
+
+
+# ── Diary 관련 ──
+
+def insert_diary(conn, user_id: int, diary_date, content: str, commit=True):
+    """일기 저장 (UPSERT — 같은 날짜면 내용 갱신)."""
+    sql = """
+        INSERT INTO diaries (user_id, diary_date, content)
+        VALUES (%s, %s, %s)
+        ON CONFLICT (user_id, diary_date)
+        DO UPDATE SET content = EXCLUDED.content, created_at = now()
+        RETURNING id
+    """
+    with conn.cursor() as cur:
+        cur.execute(sql, (user_id, diary_date, content))
+        diary_id = cur.fetchone()[0]
+    if commit:
+        conn.commit()
+    return diary_id
+
+
+def get_diary(conn, user_id: int, diary_date) -> dict | None:
+    """특정 날짜 일기 조회."""
+    sql = """
+        SELECT id, user_id, diary_date, content, created_at
+        FROM diaries
+        WHERE user_id = %s AND diary_date = %s
+    """
+    with conn.cursor() as cur:
+        cur.execute(sql, (user_id, diary_date))
+        row = cur.fetchone()
+        if row is None:
+            return None
+        cols = [desc[0] for desc in cur.description]
+    return dict(zip(cols, row))
+
+
+def list_diaries(conn, user_id: int, date_from=None, date_to=None) -> list[dict]:
+    """범위 내 일기 목록 조회."""
+    conditions = ["user_id = %s"]
+    params: list = [user_id]
+    if date_from:
+        conditions.append("diary_date >= %s")
+        params.append(date_from)
+    if date_to:
+        conditions.append("diary_date <= %s")
+        params.append(date_to)
+
+    where = " AND ".join(conditions)
+    sql = f"""
+        SELECT id, user_id, diary_date, content, created_at
+        FROM diaries
+        WHERE {where}
+        ORDER BY diary_date DESC
+    """
+    with conn.cursor() as cur:
+        cur.execute(sql, params)
+        cols = [desc[0] for desc in cur.description]
+        return [dict(zip(cols, row)) for row in cur.fetchall()]
+
+
+def update_caption(conn, photo_id: int, caption: str, commit=True):
+    """사진의 캡션 업데이트."""
+    sql = "UPDATE photos SET caption = %s WHERE id = %s"
+    with conn.cursor() as cur:
+        cur.execute(sql, (caption, photo_id))
+    if commit:
+        conn.commit()
+
+
+def list_events_by_date_range(conn, user_id: int, date_from=None, date_to=None) -> list[dict]:
+    """날짜 범위 내 이벤트 목록 조회 (RAG Engine DIARY용)."""
+    conditions = ["user_id = %s"]
+    params: list = [user_id]
+    if date_from:
+        conditions.append("started_at >= %s")
+        params.append(date_from)
+    if date_to:
+        conditions.append("started_at <= %s")
+        params.append(date_to)
+
+    where = " AND ".join(conditions)
+    sql = f"""
+        SELECT id, user_id, started_at, ended_at, primary_location, photo_count
+        FROM events
+        WHERE {where}
+        ORDER BY started_at DESC
+    """
+    with conn.cursor() as cur:
+        cur.execute(sql, params)
+        cols = [desc[0] for desc in cur.description]
+        return [dict(zip(cols, row)) for row in cur.fetchall()]
+
+
+def list_photos_by_event(conn, event_id: int) -> list[dict]:
+    """이벤트에 속한 사진 목록 조회."""
+    sql = """
+        SELECT id, user_id, file_path, taken_at,
+               latitude, longitude,
+               state, city, district, road, building, full_address,
+               caption, event_id, created_at
+        FROM photos
+        WHERE event_id = %s
+        ORDER BY taken_at ASC, id ASC
+    """
+    with conn.cursor() as cur:
+        cur.execute(sql, (event_id,))
+        cols = [desc[0] for desc in cur.description]
+        return [dict(zip(cols, row)) for row in cur.fetchall()]
 
 
 def insert_photo(conn, user_id, file_path, lat, lon, place_info=None, taken_at=None,

@@ -1,13 +1,9 @@
-"""
-chat.py
-=======
-사용자 자연어 질문을 RAGEngine 에 전달하고
-구조화된 응답을 반환하는 라우터.
-"""
+"""채팅 라우터 — RAG Engine을 통한 자연어 질의응답."""
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 
+from backend.dependencies import get_current_user_id
 from backend.services.rag_engine import engine
 
 router = APIRouter()
@@ -15,16 +11,9 @@ router = APIRouter()
 
 class ChatRequest(BaseModel):
     query: str
-    user_id: int = 1  # 프로토타입용 기본값
 
 
 @router.post("/")
-async def chat(request: ChatRequest):
-    """사용자 질문을 분류하고 적절한 파이프라인 결과를 반환한다.
-
-    Returns
-    -------
-    dict
-        {"intent": str, "params": dict, "answer": str, "photos": list}
-    """
-    return await engine.answer(request.query, request.user_id)
+async def chat(req: ChatRequest, user_id: int = Depends(get_current_user_id)):
+    result = await engine.answer(req.query, user_id)
+    return result

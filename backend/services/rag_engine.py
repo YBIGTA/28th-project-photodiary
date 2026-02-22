@@ -192,6 +192,34 @@ class RAGEngine:
 
         return _build_response(result, answer_text, photos)
 
+    async def _generate_photo_search_answer(self, query: str, photos: list) -> str:
+        """검색된 사진 메타데이터를 기반으로 자연어 응답 생성."""
+        if not photos:
+            return "조건에 맞는 사진을 찾지 못했어요."
+
+        photo_summaries = []
+        for p in photos[:10]:
+            parts = []
+            if p.get("city") or p.get("district"):
+                loc = " ".join(filter(None, [p.get("city"), p.get("district")]))
+                parts.append(f"장소: {loc}")
+            if p.get("taken_at"):
+                parts.append(f"촬영일: {str(p['taken_at'])[:10]}")
+            if p.get("caption"):
+                parts.append(f"캡션: {p['caption']}")
+            photo_summaries.append(" / ".join(parts) if parts else f"사진 ID {p['id']}")
+
+        context = "\n".join(f"- {s}" for s in photo_summaries)
+        system = (
+            "당신은 사진 일기 서비스 Pictrace의 어시스턴트입니다. "
+            "검색된 사진 정보를 바탕으로 사용자에게 친근하고 간결하게 답변하세요. "
+            "2-3문장 이내로 답변하세요."
+        )
+        user_content = f"사용자 질문: {query}\n\n검색된 사진 {len(photos)}장:\n{context}"
+
+        answer = await generate_response(system, user_content)
+        return answer or f"{len(photos)}장의 사진을 찾았습니다."
+
     # ──────────────────────────────────────────────
     #  EVENT_RECALL
     # ──────────────────────────────────────────────
@@ -280,6 +308,49 @@ class RAGEngine:
             )
 
         return _build_response(result, answer_text, photos)
+
+    async def _generate_event_narrative(
+        self, query: str, events_map: dict[int, list], all_photos: list,
+    ) -> str:
+        """이벤트별 그룹핑된 사진 정보를 바탕으로 내러티브 텍스트 생성."""
+        if not all_photos:
+            return "관련된 사진이나 이벤트를 찾지 못했어요."
+
+        event_summaries = []
+        for eid, photos in events_map.items():
+            locations = set()
+            dates = set()
+            captions = []
+            for p in photos:
+                if p.get("city") or p.get("district"):
+                    locations.add(" ".join(filter(None, [p.get("city"), p.get("district")])))
+                if p.get("taken_at"):
+                    dates.add(str(p["taken_at"])[:10])
+                if p.get("caption"):
+                    captions.append(p["caption"])
+
+            summary = f"이벤트 {eid}: "
+            if locations:
+                summary += f"장소={', '.join(locations)} "
+            if dates:
+                summary += f"날짜={', '.join(sorted(dates))} "
+            if captions:
+                summary += f"캡션=[{', '.join(captions[:3])}]"
+            event_summaries.append(summary)
+
+        context = "\n".join(f"- {s}" for s in event_summaries)
+        system = (
+            "당신은 사진 일기 서비스 Pictrace의 어시스턴트입니다. "
+            "사용자의 과거 이벤트 정보를 바탕으로, 추억을 회상하듯 따뜻하고 생생하게 이야기를 들려주세요. "
+            "3-5문장 이내로 답변하세요."
+        )
+        user_content = (
+            f"사용자 질문: {query}\n\n"
+            f"관련 이벤트 {len(events_map)}개, 총 사진 {len(all_photos)}장:\n{context}"
+        )
+
+        answer = await generate_response(system, user_content)
+        return answer or f"{len(events_map)}개의 이벤트에서 {len(all_photos)}장의 관련 사진을 찾았습니다."
 
     # ──────────────────────────────────────────────
     #  DIARY
