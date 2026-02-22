@@ -4,9 +4,10 @@ import BottomNav from './components/layout/BottomNav';
 import ChatView from './features/chat/ChatView';
 import AlbumView from './features/album/AlbumView';
 import MemoriesView from './features/album/MemoriesView';
+import AuthModal from './components/auth/AuthModal';
 
 function App() {
-  // 앱 실행 시 첫 화면을 'album' (앨범 사진 VIEW)으로 설정합니다.
+  // 앱 실행 시 첫 화면을 'album' (앨범 사진 VIEW)으로 설정
   const [activeView, setActiveView] = useState('album'); // 'chat' | 'album' | 'memories'
 
   const handleNavigate = (view) => {
@@ -29,6 +30,9 @@ function App() {
 
       {/* 모바일 하단 내비게이션 바 */}
       <BottomNav activeView={activeView} onNavigate={handleNavigate} />
+
+      {/* 팝업 모달 */}
+      <AuthModal />
     </div>
   );
 }

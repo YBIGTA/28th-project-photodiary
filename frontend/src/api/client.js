@@ -15,7 +15,27 @@ const client = axios.create({
     },
 });
 
+// Interceptor to attach JWT token
+client.interceptors.request.use((config) => {
+    const token = localStorage.getItem('access_token');
+    if (token) {
+        config.headers.Authorization = `Bearer ${token}`;
+    }
+    return config;
+});
+
 const realApi = {
+    // Auth
+    login: async (email, password) => {
+        const response = await client.post('/auth/login', { email, password });
+        return response.data;
+    },
+
+    register: async (username, email, password) => {
+        const response = await client.post('/auth/register', { username, email, password });
+        return response.data;
+    },
+
     // Photos
     getPhotos: async (limit = 100) => {
         const response = await client.get('/photos/', { params: { limit } });
@@ -45,6 +65,18 @@ const realApi = {
         return response.data;
     },
 };
+
+// Add mock login/register support to mockApi temporarily if USE_MOCK is true
+if (USE_MOCK && !mockApi.login) {
+    mockApi.login = async (email, password) => {
+        console.log("Mock Login:", email);
+        return { access_token: "mock-token-123", user_id: 1, username: email.split('@')[0] };
+    };
+    mockApi.register = async (username, email, password) => {
+        console.log("Mock Register:", username);
+        return { access_token: "mock-token-123", user_id: 1, username };
+    };
+}
 
 // Export either real or mock API
 export const api = USE_MOCK ? mockApi : realApi;
