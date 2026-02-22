@@ -129,6 +129,31 @@ class S3Uploader:
             s3_url=s3_url,
         )
 
+    def download(self, s3_key: str, local_path: str | Path) -> str:
+        """S3에서 파일을 다운로드합니다.
+
+        Parameters
+        ----------
+        s3_key : str
+            다운로드할 S3 객체의 키.
+        local_path : str | Path
+            저장할 로컬 파일 경로.
+
+        Returns
+        -------
+        str
+            저장된 로컬 파일의 절대 경로.
+
+        Raises
+        ------
+        ClientError
+            S3 다운로드 실패 시.
+        """
+        path = Path(local_path)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        self._client.download_file(self.bucket, s3_key, str(path))
+        return str(path.absolute())
+
     def upload_batch(
         self,
         local_paths: list[str | Path],
@@ -231,6 +256,24 @@ def upload_to_s3(local_path: str | Path, user_id: str) -> S3UploadResult:
     S3UploadResult
     """
     return get_uploader().upload(local_path, user_id)
+
+
+def download_from_s3(s3_key: str, local_path: str | Path) -> str:
+    """원라인 S3 다운로드 편의 함수.
+
+    Parameters
+    ----------
+    s3_key : str
+        S3 객체 키.
+    local_path : str | Path
+        다운로드할 로컬 파일 경로.
+
+    Returns
+    -------
+    str
+        로컬 파일 절대 경로.
+    """
+    return get_uploader().download(s3_key, local_path)
 
 
 # ── CLI 테스트 ───────────────────────────────────────────────

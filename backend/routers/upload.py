@@ -6,7 +6,7 @@ import os
 import tempfile
 import logging
 
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, BackgroundTasks
 
 from backend.dependencies import get_current_user_id
 from db.schema import get_connection
@@ -14,6 +14,7 @@ from db.crud import insert_photo
 from pipeline.utils.exif_reader import get_exif_data, get_gps_info, get_lat_lon, get_taken_at
 from pipeline.utils.geocoder import get_geocoder
 from pipeline.utils.s3_uploader import upload_to_s3
+from pipeline.worker import process_photo_pipeline
 
 logger = logging.getLogger(__name__)
 
@@ -23,6 +24,7 @@ router = APIRouter()
 @router.post("/upload")
 def upload_photo(
     file: UploadFile = File(...),
+    background_tasks: BackgroundTasks = None,
     user_id: int = Depends(get_current_user_id),
 ):
     """사진 업로드: EXIF 추출 → GPS 역지오코딩 → S3 업로드 → DB INSERT.
@@ -85,6 +87,12 @@ def upload_photo(
             )
         finally:
             conn.close()
+
+        # 백그라운드 태스크 등록
+        if background_tasks is not None:
+            background_tasks.add_task(process_photo_pipeline, photo_id, user_id, file_path)
+        else:
+            logger.warning("BackgroundTasks 미지정. 파이프라인이 실행되지 않습니다.")
 
         return {"photo_id": photo_id, "s3_url": s3_url}
 
