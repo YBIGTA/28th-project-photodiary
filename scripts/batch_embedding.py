@@ -1,9 +1,9 @@
 """
-DB에 저장된 사진의 메타데이터 → 벡터 변환 → photo_embeddings 저장
+DB에 저장된 사진의 메타데이터 → 벡터 변환 → photo_embeddings 저장 (관리자 CLI 도구)
 
 실행:
-  python -m pipeline.steps.04_embedding               # 모든 유저
-  python -m pipeline.steps.04_embedding --user-id 3   # 특정 유저만
+  python scripts/batch_embedding.py               # 모든 유저
+  python scripts/batch_embedding.py --user-id 3   # 특정 유저만
 """
 
 import sys
@@ -14,27 +14,9 @@ from dotenv import load_dotenv
 load_dotenv()
 
 from db.schema import get_connection
-from db.crud import list_photos, insert_embedding, list_all_user_ids
+from db.crud import list_photos, insert_embedding, list_all_user_ids, get_photo_keywords
 from pipeline.core.embedder import embed_photo
 
-
-def get_photo_keywords(conn, photo_id):
-    """photo_keywords + keywords 테이블에서 해당 사진의 키워드 목록 조회.
-
-    Returns
-    -------
-    list[str] — 키워드 이름 목록 (중요도 높은 순)
-    """
-    sql = """
-        SELECT k.name
-        FROM photo_keywords pk
-        JOIN keywords k ON pk.keyword_id = k.id
-        WHERE pk.photo_id = %s
-        ORDER BY pk.importance DESC
-    """
-    with conn.cursor() as cur:
-        cur.execute(sql, (photo_id,))
-        return [row[0] for row in cur.fetchall()]
 
 
 def process_user(conn, user_id: int, limit: int = 10000):

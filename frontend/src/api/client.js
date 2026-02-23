@@ -53,6 +53,18 @@ const realApi = {
         return `${API_BASE_URL}/photos/${photoId}/image`;
     },
 
+    uploadPhoto: async (file) => {
+        const formData = new FormData();
+        formData.append('file', file);
+
+        const response = await client.post('/photos/upload', formData, {
+            headers: {
+                'Content-Type': 'multipart/form-data'
+            }
+        });
+        return response.data;
+    },
+
     // Chat
     chat: async (query, userId = 1) => {
         const response = await client.post('/chat/', { query, user_id: userId });
@@ -66,16 +78,30 @@ const realApi = {
     },
 };
 
-// Add mock login/register support to mockApi temporarily if USE_MOCK is true
-if (USE_MOCK && !mockApi.login) {
-    mockApi.login = async (email, password) => {
-        console.log("Mock Login:", email);
-        return { access_token: "mock-token-123", user_id: 1, username: email.split('@')[0] };
-    };
-    mockApi.register = async (username, email, password) => {
-        console.log("Mock Register:", username);
-        return { access_token: "mock-token-123", user_id: 1, username };
-    };
+// Add mock login/register and upload support to mockApi temporarily if USE_MOCK is true
+if (USE_MOCK) {
+    if (!mockApi.login) {
+        mockApi.login = async (email, password) => {
+            console.log("Mock Login:", email);
+            return { access_token: "mock-token-123", user_id: 1, username: email.split('@')[0] };
+        };
+    }
+    if (!mockApi.register) {
+        mockApi.register = async (username, email, password) => {
+            console.log("Mock Register:", username);
+            return { access_token: "mock-token-123", user_id: 1, username };
+        };
+    }
+    if (!mockApi.uploadPhoto) {
+        mockApi.uploadPhoto = async (file) => {
+            console.log("Mock Upload:", file.name);
+            return new Promise((resolve) => {
+                setTimeout(() => {
+                    resolve({ photo_id: Math.floor(Math.random() * 1000), s3_url: "mock-url" });
+                }, 1500); // 1.5초 지연
+            });
+        };
+    }
 }
 
 // Export either real or mock API

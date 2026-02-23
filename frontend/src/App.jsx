@@ -5,10 +5,12 @@ import ChatView from './features/chat/ChatView';
 import AlbumView from './features/album/AlbumView';
 import MemoriesView from './features/album/MemoriesView';
 import AuthModal from './components/auth/AuthModal';
+import UploadModal from './components/upload/UploadModal';
 
 function App() {
   // 앱 실행 시 첫 화면을 'album' (앨범 사진 VIEW)으로 설정
   const [activeView, setActiveView] = useState('album'); // 'chat' | 'album' | 'memories'
+  const [isUploadOpen, setIsUploadOpen] = useState(false);
 
   const handleNavigate = (view) => {
     setActiveView(view);
@@ -17,7 +19,7 @@ function App() {
   return (
     <div className="flex w-full h-screen overflow-hidden bg-[#FDFBF7]">
       {/* PC 사이드바 */}
-      <Sidebar activeView={activeView} onNavigate={handleNavigate} />
+      <Sidebar activeView={activeView} onNavigate={handleNavigate} onUploadClick={() => setIsUploadOpen(true)} />
 
       {/* 메인 콘텐츠 영역 */}
       <main className="flex-1 h-full relative w-full">
@@ -29,10 +31,11 @@ function App() {
       </main>
 
       {/* 모바일 하단 내비게이션 바 */}
-      <BottomNav activeView={activeView} onNavigate={handleNavigate} />
+      <BottomNav activeView={activeView} onNavigate={handleNavigate} onUploadClick={() => setIsUploadOpen(true)} />
 
       {/* 팝업 모달 */}
       <AuthModal />
+      <UploadModal isOpen={isUploadOpen} onClose={() => setIsUploadOpen(false)} />
     </div>
   );
 }

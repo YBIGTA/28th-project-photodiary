@@ -3,7 +3,7 @@ import { MessageSquare, Image as ImageIcon, Plus, BookOpen, User, LogOut } from 
 import logo from '../../assets/logo.png';
 import { useAuth } from '../../contexts/AuthContext';
 
-export default function Sidebar({ activeView, onNavigate }) {
+export default function Sidebar({ activeView, onNavigate, onUploadClick }) {
     const { isLoggedIn, logout, openAuthModal } = useAuth();
 
     return (
@@ -99,6 +99,7 @@ export default function Sidebar({ activeView, onNavigate }) {
             {/* 하단 고정 영역 (업로드 액션 버튼 - 호버 시 위로 확장됨) */}
             <div className="mt-auto px-2 w-full h-[72px] flex justify-center items-end">
                 <button
+                    onClick={onUploadClick}
                     className="group w-full flex flex-col items-center justify-end bg-[#D7AD7E] hover:bg-[#c49b6c] text-white rounded-2xl transition-all duration-300 shadow-sm overflow-hidden h-12 hover:h-[72px] pb-[10px]"
                 >
                     <span className="text-[10px] uppercase tracking-widest font-bold mb-1 opacity-0 group-hover:opacity-100 transition-all duration-300 translate-y-2 group-hover:translate-y-0 pointer-events-none">

@@ -1,17 +1,11 @@
 """
-DB에 저장된 사진 → RAM++ 키워드 + Moondream 캡션 추출 → DB 저장
-
-파이프라인 흐름:
-  1. photos 테이블에서 사진 목록 조회
-  2. 이미 키워드가 있는 사진은 스킵 (--force 로 재추출 가능)
-  3. RAM++ 배치 추론으로 태그 + confidence 추출 → keywords/photo_keywords 저장
-  4. (선택) Moondream 2 캡션 생성 → photos.caption 저장
+DB에 저장된 사진 → RAM++ 키워드 + Moondream 캡션 추출 → DB 저장 (관리자 CLI 도구)
 
 실행:
-  python -m pipeline.save_keywords                          # RAM++ 키워드만
-  python -m pipeline.save_keywords --with-caption           # RAM++ + Moondream 캡션
-  python -m pipeline.save_keywords --caption-only           # Moondream 캡션만
-  python -m pipeline.save_keywords --with-caption --force   # 전체 재추출
+  python scripts/batch_tagging.py                          # RAM++ 키워드만 (전체 유저)
+  python scripts/batch_tagging.py --with-caption           # RAM++ + Moondream 캡션
+  python scripts/batch_tagging.py --caption-only           # Moondream 캡션만
+  python scripts/batch_tagging.py --user-id 1 --force     # 특정 유저 전체 재추출
 """
 
 from __future__ import annotations
@@ -34,7 +28,7 @@ from db.crud import (
     update_caption,
     list_all_user_ids,
 )
-from pipeline.core.ram_tagger import extract_tags_batch, ImageTagResult, TagResult
+from pipeline.core.ram_tagger import extract_tags_batch, ImageTagResult, TagResult, categorize_tag
 from pipeline.utils.s3_uploader import download_from_s3
 
 
@@ -62,67 +56,7 @@ def _is_s3_path(file_path: str) -> bool:
 
 
 # ============================================================
-# 태그 카테고리 분류
-# ============================================================
-
-# 대표 태그 → 카테고리 매핑 (RAM++ 4585 태그 중 주요 분류)
-_PERSON_TAGS = frozenset({
-    "person", "man", "woman", "boy", "girl", "child", "baby", "people",
-    "teenager", "adult", "elder", "couple", "crowd", "family", "kid",
-    "female", "male", "lady", "gentleman", "toddler", "infant",
-    "bride", "groom", "model", "player", "athlete", "soldier",
-    "student", "teacher", "chef", "doctor", "nurse", "worker",
-})
-
-_ACTIVITY_TAGS = frozenset({
-    "walk", "run", "sit", "stand", "eat", "drink", "cook", "read",
-    "write", "play", "swim", "dance", "sing", "jump", "climb",
-    "ride", "drive", "fly", "ski", "surf", "skate", "hike",
-    "sleep", "lay", "talk", "smile", "laugh", "cry", "wave",
-    "throw", "catch", "kick", "hit", "hold", "carry", "push",
-    "pull", "lift", "cut", "paint", "draw", "photograph", "shop",
-    "travel", "camp", "fish", "hunt", "celebrate", "pray",
-    "exercise", "stretch", "yoga", "meditate", "work", "study",
-    "race", "compete", "perform", "juggle", "balance",
-})
-
-_PLACE_TAGS = frozenset({
-    "beach", "mountain", "forest", "park", "garden", "street",
-    "road", "bridge", "building", "house", "apartment", "hotel",
-    "restaurant", "cafe", "bar", "church", "temple", "mosque",
-    "school", "university", "hospital", "airport", "station",
-    "market", "mall", "store", "shop", "museum", "library",
-    "stadium", "gym", "pool", "playground", "zoo", "aquarium",
-    "farm", "field", "lake", "river", "ocean", "sea", "island",
-    "desert", "cave", "waterfall", "city", "town", "village",
-    "countryside", "suburb", "downtown", "harbor", "port",
-    "kitchen", "bedroom", "bathroom", "living room", "office",
-    "classroom", "hallway", "balcony", "rooftop", "basement",
-    "garage", "yard", "patio", "courtyard", "lobby",
-})
-
-
-def categorize_tag(tag_en: str) -> str:
-    """RAM++ 영어 태그를 DB 카테고리로 분류.
-
-    Returns
-    -------
-    str — 'person' | 'activity' | 'place' | 'object'
-    """
-    tag_lower = tag_en.lower().strip()
-
-    if tag_lower in _PERSON_TAGS:
-        return "person"
-    if tag_lower in _ACTIVITY_TAGS:
-        return "activity"
-    if tag_lower in _PLACE_TAGS:
-        return "place"
-
-    return "object"
-
-
-# ============================================================
-# 메인 파이프라인
+# S3 경로 처리 헬퍼
 # ============================================================
 
 def process_photos(

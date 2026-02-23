@@ -1,14 +1,13 @@
 """
-증분 이벤트 클러스터링 실행 스크립트.
+증분 이벤트 클러스터링 실행 스크립트 (관리자 CLI 도구)
 
 실행:
-    python -m pipeline.run_clustering               # 모든 유저
-    python -m pipeline.run_clustering --user-id 3   # 특정 유저만
+    python scripts/batch_clustering.py               # 모든 유저
+    python scripts/batch_clustering.py --user-id 3   # 특정 유저만
 """
 
 import sys
 import argparse
-from importlib import import_module
 
 import pandas as pd
 
@@ -22,9 +21,7 @@ from db.crud import (
 )
 from db.schema import get_connection
 
-_clustering_module = import_module("pipeline.steps.03_clustering")
-cluster_events = _clustering_module.cluster_events
-resolve_photo_event_updates = _clustering_module.resolve_photo_event_updates
+from pipeline.steps.01_clustering import cluster_events, resolve_photo_event_updates
 
 
 def _build_cluster_input(photos: list[dict]) -> pd.DataFrame:

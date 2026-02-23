@@ -24,12 +24,11 @@ from db.crud import (
     update_photo_event_ids,
 )
 from pipeline.utils.s3_uploader import download_from_s3
-from pipeline.steps.02_tagging import categorize_tag
-from pipeline.core.ram_tagger import extract_tags_batch
+from pipeline.core.ram_tagger import extract_tags_batch, categorize_tag
 from pipeline.core.moondream import generate_captions_batch, unload_model as unload_moondream
 from pipeline.core.embedder import embed_photo
-from pipeline.steps.03_clustering import cluster_events, resolve_photo_event_updates
-from pipeline.steps.04_embedding import get_photo_keywords
+from pipeline.steps.01_clustering import cluster_events, resolve_photo_event_updates
+from db.crud import get_photo_keywords
 import pandas as pd
 
 logger = logging.getLogger(__name__)
