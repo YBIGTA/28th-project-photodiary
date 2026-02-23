@@ -6,7 +6,6 @@
 from __future__ import annotations
 
 import os
-import sys
 import tempfile
 import logging
 from pathlib import Path
@@ -130,22 +129,37 @@ def process_photo_pipeline(photo_id: int, user_id: int, s3_key: str):
                 last_event = get_last_event(conn, user_id)
                 cluster_result = cluster_events(df, user_id=user_id, last_event=last_event)
                 
-                inserted_ids = insert_events(conn, cluster_result["events"])
+                # new / merged 이벤트 분리
+                new_events = []
+                merged_events = []
+                for event in cluster_result["events"]:
+                    if event.get("existing_event_id") is None:
+                        new_events.append(event)
+                    else:
+                        merged_events.append(event)
+
+                # 원자적 트랜잭션: commit=False 로 모든 쓰기 후 일괄 커밋
+                inserted_ids = insert_events(conn, new_events, commit=False)
+
+                for event in merged_events:
+                    update_existing_event(
+                        conn,
+                        event_id=event["existing_event_id"],
+                        ended_at=event["ended_at"],
+                        primary_location=event["primary_location"],
+                        photo_count=event["photo_count"],
+                        commit=False,
+                    )
+
                 updates = resolve_photo_event_updates(cluster_result, inserted_ids)
                 if updates:
-                    update_photo_event_ids(conn, updates)
-                
-                # 기존 이벤트가 업데이트된 경우 (merge_anchor)
-                for event in cluster_result["events"]:
-                    if event["existing_event_id"] is not None:
-                        update_existing_event(
-                            conn,
-                            event_id=event["existing_event_id"],
-                            ended_at=event["ended_at"],
-                            primary_location=event["primary_location"],
-                            photo_count=event["photo_count"]
-                        )
-                logger.info(f"      Clustering complete. {len(cluster_result['events'])} events extracted/updated.")
+                    update_photo_event_ids(conn, updates, commit=False)
+
+                conn.commit()
+                logger.info(
+                    f"      Clustering complete. {len(new_events)} new, "
+                    f"{len(merged_events)} merged events."
+                )
         finally:
             conn.close()
     

@@ -1,6 +1,5 @@
 import React from 'react';
-import { MessageSquare, Image as ImageIcon, Plus, BookOpen, User, LogOut } from 'lucide-react';
-import logo from '../../assets/logo.png';
+import { MessageSquare, Image as ImageIcon, Plus, BookOpen, User, LogOut, Camera } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 
 export default function Sidebar({ activeView, onNavigate, onUploadClick }) {
@@ -19,11 +18,7 @@ export default function Sidebar({ activeView, onNavigate, onUploadClick }) {
                     className="focus:outline-none transition-transform duration-300 hover:scale-110"
                     title="Home"
                 >
-                    <img
-                        src={logo}
-                        alt="PicTrace"
-                        className="w-10 h-10 object-contain"
-                    />
+                    <Camera size={28} className="text-[#B6694E]" strokeWidth={2.5} />
                 </button>
 
                 {/* 로그인 / 프로필 영역 */}
