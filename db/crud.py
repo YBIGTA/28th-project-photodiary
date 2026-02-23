@@ -447,9 +447,16 @@ def link_photo_keyword(conn, photo_id: int, keyword_id: int, importance: float =
 def bulk_insert_photo_keywords(
     conn, photo_id: int, keyword_data: list[tuple[str, str, float]],
 ) -> int:
-    """한 사진의 키워드를 한번에 INSERT (트랜잭션 1회)."""
+    """한 사진의 키워드를 한번에 INSERT (트랜잭션 1회).
+    
+    주의: 동시 다발적인 multi-file 업로드 시 여러 프로세스가 서로 다른 순서로
+    동일한 키워드를 INSERT 하려 할 때 발생하는 데드락(Deadlock)을 방기하기 위해,
+    반드시 키워드 이름(name)을 기준으로 정렬하여 락 획득 순서를 일치시켜야 합니다.
+    """
     if not keyword_data:
         return 0
+        
+    keyword_data = sorted(keyword_data, key=lambda x: x[0])
     saved = 0
     with conn.cursor() as cur:
         for name, category, importance in keyword_data:

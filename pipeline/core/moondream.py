@@ -81,7 +81,7 @@ def load_model():
         MODEL_ID,
         revision=MODEL_REVISION,
         trust_remote_code=True,
-        dtype=dtype,
+        torch_dtype=dtype,
         device_map={"": str(device)},
     )
     _model.eval()
