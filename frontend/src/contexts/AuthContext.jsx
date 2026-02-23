@@ -1,28 +1,30 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { api } from '../api/client';
+import { AuthContext } from './auth-context';
 
-const AuthContext = createContext();
+function loadStoredToken() {
+    try {
+        return localStorage.getItem('access_token') || null;
+    } catch {
+        return null;
+    }
+}
+
+function loadStoredUser() {
+    try {
+        const raw = localStorage.getItem('user');
+        return raw ? JSON.parse(raw) : null;
+    } catch {
+        localStorage.removeItem('access_token');
+        localStorage.removeItem('user');
+        return null;
+    }
+}
 
 export function AuthProvider({ children }) {
-    const [user, setUser] = useState(null);
-    const [token, setToken] = useState(null);
+    const [user, setUser] = useState(loadStoredUser);
+    const [token, setToken] = useState(loadStoredToken);
     const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
-
-    useEffect(() => {
-        // Load token from local storage on mount
-        const storedToken = localStorage.getItem('access_token');
-        const storedUser = localStorage.getItem('user');
-
-        if (storedToken && storedUser) {
-            try {
-                setToken(storedToken);
-                setUser(JSON.parse(storedUser));
-            } catch {
-                localStorage.removeItem('access_token');
-                localStorage.removeItem('user');
-            }
-        }
-    }, []);
 
     const login = async (email, password) => {
         try {
@@ -79,6 +81,3 @@ export function AuthProvider({ children }) {
     );
 }
 
-export function useAuth() {
-    return useContext(AuthContext);
-}

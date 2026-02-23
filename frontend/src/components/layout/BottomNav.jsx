@@ -1,6 +1,6 @@
 import React from 'react';
 import { MessageSquare, Image as ImageIcon, Plus, BookOpen, User, LogOut } from 'lucide-react';
-import { useAuth } from '../../contexts/AuthContext';
+import { useAuth } from '../../contexts/useAuth';
 
 export default function BottomNav({ activeView, onNavigate, onUploadClick }) {
     const { isLoggedIn, logout, openAuthModal } = useAuth();

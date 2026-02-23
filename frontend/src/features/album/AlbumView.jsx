@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef, useMemo } from 'react';
 import { api } from '../../api/client';
-import { useAuth } from '../../contexts/AuthContext';
+import { useAuth } from '../../contexts/useAuth';
 import { Search, ArrowDownUp, Grid, Image as ImageIcon, Loader2 } from 'lucide-react';
 
 export default function AlbumView({ onSearchFocus }) {

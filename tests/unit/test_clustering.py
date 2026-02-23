@@ -6,7 +6,7 @@ from datetime import datetime, timedelta
 import pandas as pd
 import pytest
 
-clustering = importlib.import_module("pipeline.steps.03_clustering")
+clustering = importlib.import_module("pipeline.steps.clustering")
 haversine_distance = clustering.haversine_distance
 cluster_events = clustering.cluster_events
 resolve_photo_event_updates = clustering.resolve_photo_event_updates
