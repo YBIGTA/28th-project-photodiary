@@ -1,3 +1,4 @@
+from __future__ import annotations
 """
 DB에 저장된 사진 → RAM++ 키워드 + Moondream 캡션 추출 → DB 저장 (관리자 CLI 도구)
 
@@ -8,7 +9,7 @@ DB에 저장된 사진 → RAM++ 키워드 + Moondream 캡션 추출 → DB 저�
   python scripts/batch_tagging.py --user-id 1 --force     # 특정 유저 전체 재추출
 """
 
-from __future__ import annotations
+from typing import Optional
 
 import os
 import sys
@@ -62,7 +63,7 @@ def _is_s3_path(file_path: str) -> bool:
 def process_photos(
     user_id: int,
     batch_size: int = 4,
-    threshold: float | None = None,
+    threshold: Optional[float] = None,
     force: bool = False,
     limit: int = 10000,
     with_caption: bool = False,
@@ -74,7 +75,7 @@ def process_photos(
     ----------
     user_id : int — 처리할 사용자 ID
     batch_size : int — RAM++ 배치 크기
-    threshold : float | None — 태그 임계값
+    threshold : Optional[float] — 태그 임계값
     force : bool — True이면 기존 데이터 삭제 후 재추출
     limit : int — 처리할 최대 사진 수
     with_caption : bool — Moondream 캡션도 생성할지

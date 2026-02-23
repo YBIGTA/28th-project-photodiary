@@ -1,3 +1,4 @@
+from __future__ import annotations
 """
 agent_router.py
 ===============
@@ -12,7 +13,6 @@ Intent Categories
 - GENERAL       : 일반 대화, 서비스 범위 밖 질문
 """
 
-from __future__ import annotations
 
 import json
 import logging
@@ -54,13 +54,13 @@ class RouteResult(BaseModel):
         분류된 사용자 의도.
     keywords : list[str]
         검색에 사용할 내용 키워드 (장소·시간 표현 제외).
-    location : str | None
+    location : Optional[str]
         사용자가 언급한 장소명 (예: "부산", "성수동").
-    date_from : str | None
+    date_from : Optional[str]
         시작 날짜 (YYYY-MM-DD). DIARY 일 때는 대상 날짜.
-    date_to : str | None
+    date_to : Optional[str]
         종료 날짜 (YYYY-MM-DD).
-    diary_action : DiaryAction | None
+    diary_action : Optional[DiaryAction]
         DIARY 전용 — create(생성) / retrieve(조회).
     """
     intent: Intent

@@ -1,3 +1,4 @@
+from __future__ import annotations
 """
 시계열 사진 메타데이터를 이벤트 단위로 분리하는 모듈.
 
@@ -28,7 +29,7 @@
 참고로 디버깅/검증을 위해 photo_ids를 함께 반환한다.
 """
 
-from __future__ import annotations
+from typing import Optional
 
 import json
 import logging
@@ -108,7 +109,7 @@ def _find_anchor(event_photos: list[dict]) -> dict:
     return event_photos[0]
 
 
-def _parse_primary_location(primary_location: str | None) -> tuple[float | None, float | None]:
+def _parse_primary_location(primary_location: Optional[str]) -> tuple[Optional[float], Optional[float]]:
     if not primary_location:
         return None, None
 
@@ -173,7 +174,7 @@ def _finalize_event(
     user_id: int,
     event_photos: list[dict],
     event_ref: int,
-    existing_event_id: int | None = None,
+    existing_event_id: Optional[int] = None,
     merge_location: tuple[float, float] | None = None,
     merge_gps_count: int = 0,
 ) -> dict:
@@ -255,8 +256,8 @@ def _should_split(
 def cluster_events(
     photo_df: pd.DataFrame,
     user_id: int = 1,
-    last_event: dict | None = None,
-    config: ClusterConfig | None = None,
+    last_event: Optional[dict] = None,
+    config: Optional[ClusterConfig] = None,
 ) -> dict:
     """
     사진 메타데이터를 이벤트 단위로 클러스터링한다.
@@ -273,7 +274,7 @@ def cluster_events(
         {
             "events": [event_dict, ...],
             "photo_event_links": [
-                {"photo_id": <id>, "event_ref": <int>, "existing_event_id": <int|None>},
+                {"photo_id": <id>, "event_ref": <int>, "existing_event_id": <Optional[int]>},
                 ...
             ]
         }
@@ -290,11 +291,11 @@ def cluster_events(
 
     event_ref = 0
     current_event: list[dict] = []
-    current_existing_event_id: int | None = None
+    current_existing_event_id: Optional[int] = None
     start_idx = 0
 
     # 병합(Merge) 관련 상태
-    merge_anchor: dict | None = None
+    merge_anchor: Optional[dict] = None
     merge_location: tuple[float, float] | None = None
     merge_gps_count: int = 0
 

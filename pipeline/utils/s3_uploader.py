@@ -1,10 +1,11 @@
+from __future__ import annotations
 """S3 이미지 업로드 유틸리티.
 
 boto3를 사용하여 로컬 이미지를 AWS S3에 업로드하고
 S3 URL을 반환하는 독립 모듈.
 """
 
-from __future__ import annotations
+from typing import Optional
 
 import os
 import time
@@ -54,7 +55,7 @@ class S3Uploader:
         AWS 리전. 미지정 시 ``AWS_S3_REGION`` 환경변수 또는 ``ap-northeast-2``.
     """
 
-    def __init__(self, bucket: str | None = None, region: str | None = None):
+    def __init__(self, bucket: Optional[str] = None, region: Optional[str] = None):
         self.bucket = bucket or os.getenv("AWS_S3_BUCKET_NAME", "")
         self.region = region or os.getenv("AWS_S3_REGION", _DEFAULT_REGION)
 
@@ -75,7 +76,7 @@ class S3Uploader:
         self,
         local_path: str | Path,
         user_id: str,
-        filename: str | None = None,
+        filename: Optional[str] = None,
     ) -> S3UploadResult:
         """단일 파일을 S3에 업로드.
 
@@ -216,12 +217,12 @@ class S3Uploader:
 
 
 # ── 싱글턴 ───────────────────────────────────────────────────
-_uploader: S3Uploader | None = None
+_uploader: Optional[S3Uploader] = None
 
 
 # ── 모듈 레벨 편의 함수 ─────────────────────────────────────
 
-def get_uploader(bucket: str | None = None, region: str | None = None) -> S3Uploader:
+def get_uploader(bucket: Optional[str] = None, region: Optional[str] = None) -> S3Uploader:
     """S3Uploader 싱글턴 반환 (최초 호출 시 생성).
 
     Parameters

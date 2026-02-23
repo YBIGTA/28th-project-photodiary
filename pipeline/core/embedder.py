@@ -5,6 +5,7 @@
 - 사진 키워드(passage)와 사용자 질문(query)의 관계를 잘 찾음
 """
 
+from typing import Optional
 from sentence_transformers import SentenceTransformer
 import numpy as np
 
@@ -24,8 +25,8 @@ def get_model():
 
 def build_photo_text(
     keywords: list[str],
-    place_parts: dict | None = None,
-    caption: str | None = None,
+    place_parts: Optional[dict] = None,
+    caption: Optional[str] = None,
 ) -> str:
     """사진의 키워드 + 장면 캡션 + 장소 정보를 하나의 텍스트로 조합.
 
@@ -33,9 +34,9 @@ def build_photo_text(
     ----------
     keywords : list[str]
         사진에서 추출된 키워드 목록 (RAM++ 등)
-    place_parts : dict | None
+    place_parts : Optional[dict]
         장소 메타데이터
-    caption : str | None
+    caption : Optional[str]
         Moondream 2가 생성한 장면 설명 캡션
 
     Returns
@@ -95,8 +96,8 @@ def embed_texts(texts: list[str]) -> np.ndarray:
 
 def embed_photo(
     keywords: list[str],
-    place_parts: dict | None = None,
-    caption: str | None = None,
+    place_parts: Optional[dict] = None,
+    caption: Optional[str] = None,
 ) -> np.ndarray:
     """사진 1장의 키워드+캡션+장소 → 768차원 벡터.
 
