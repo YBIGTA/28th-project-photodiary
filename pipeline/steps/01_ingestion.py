@@ -6,13 +6,13 @@ from __future__ import annotations
 
 import os, sys
 from contextlib import contextmanager
-from pathlib import Path
 from db.schema import get_connection
 from db.crud import insert_photo
 from pipeline.utils.exif_reader import analyze_photo
 from pipeline.utils.geocoder import get_geocoder
 from typing import List, Dict, Optional
 from tqdm import tqdm
+from pathlib import Path
 
 @contextmanager
 def _suppress_stdout():
@@ -31,31 +31,24 @@ def _suppress_stdout():
         sys.stdout = saved
         devnull.close()
 
-def ingest_directory(dir_path: str, user_id: int = 1) -> None:
+def ingest_directory(files: List[Path], user_id: int = 1) -> None:
     """
     1. 디렉토리 내 이미지 파일 목록 확보
     2. 각 파일의 EXIF 정보 추출 (taken_at, GPS)
     3. GPS가 있다면 주소로 변환 (Geocoding)
     4. DB (photos 테이블)에 저장 (중복 체크 포함)
 
-    dir_path: str = 순회할 디렉토리 주소
+    photos: 이미지 디렉토리 리스트
     user_id: int = DB에 저장될 user id
     """
-    base: Path = Path(dir_path)
-    if not base.exists() or not base.is_dir():
-        # dir_path 존재하지 않는 경우
-        raise FileNotFoundError(f"디렉토리가 존재하지 않습니다: {base}")
+    
+    photos: List[Path] = []
+    for f in files:
+        if f.lower().endswith((".jpeg", ".jpg", ".png", ".heic")):
+            photos.append(f)
 
-    print(f"{dir_path} 하위 디렉토리에서 사진 추출 중...")
-
-    photos: List[str] = [] 
-    # 사진 경로 저장하는 리스트
-    for (path, dirs, files) in os.walk(dir_path):
-        # dir_path를 포함한 하위 디렉토리 순회하며 사진 파일 추출
-        for f in files:
-            if f.lower().endswith((".jpeg", ".jpg", ".png", ".heic")):
-                # 파일이 사진 형식인지 확인한 후 리스트에 삽입
-                photos.append(os.path.join(path, f))
+    if not photos:
+        raise FileNotFoundError("사진이 존재하지 않습니다.")
 
     geocoder = get_geocoder()
     # 기본 geocoder 받아오기

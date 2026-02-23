@@ -34,19 +34,38 @@ import pandas as pd
 
 logger = logging.getLogger(__name__)
 
+def _extract_s3_key(file_path: str) -> str:
+    """DB에 저장된 file_path가 S3 Key 혹은 S3 URL 어느 형태여도 Key만 추출한다.
+    
+    - S3 Key 예시:  photos/1/abc.jpg           → photos/1/abc.jpg
+    - S3 URL 예시:  https://bucket.s3.region.amazonaws.com/photos/1/abc.jpg
+                    → photos/1/abc.jpg
+    """
+    # TODO: DB에 저장된 file_path는 보통 한 가지 종류일듯. 팀원 구현 코드 확인 필요.
+    if file_path.startswith("http://") or file_path.startswith("https://"):
+        # URL에서 도메인 제거 후 첫 '/' 이후 path만 추출
+        from urllib.parse import urlparse
+        parsed = urlparse(file_path)
+        return parsed.path.lstrip("/")
+    return file_path
+
+
 def process_photo_pipeline(photo_id: int, user_id: int, s3_key: str):
     """단일 사진에 대한 AI 처리 파이프라인 (백그라운드 실행용)."""
     logger.info(f"[Worker] Starting pipeline for photo_id={photo_id}, user_id={user_id}")
     
-    # 1. S3에서 파일 다운로드
-    ext = os.path.splitext(s3_key)[1].lower() or ".jpg"
+    # 1. DB에서 file_path를 꺼내 S3 Key를 결정 (인자 s3_key 또는 DB에서 재조회)
+    # s3_key 인자가 URL이나 Key 중 어느 형태여도 올바르게 처리
+    actual_s3_key = _extract_s3_key(s3_key)
+    ext = os.path.splitext(actual_s3_key)[1].lower() or ".jpg"
+
     tmp_path = None
     try:
         with tempfile.NamedTemporaryFile(delete=False, suffix=ext) as tmp:
             tmp_path = tmp.name
         
-        logger.info(f"  [1] Downloading from S3: {s3_key} -> {tmp_path}")
-        download_from_s3(s3_key, tmp_path)
+        logger.info(f"  [1] Downloading from S3: {actual_s3_key} -> {tmp_path}")
+        download_from_s3(actual_s3_key, tmp_path)
         
         conn = get_connection()
         try:

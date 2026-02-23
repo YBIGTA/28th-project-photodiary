@@ -1,26 +1,41 @@
 """
-사진 → GPS 추출 → 역지오코딩 → DB INSERT 파이프라인
+사진 → GPS 추출 → 역지오코딩 → DB INSERT 파이프라인 (관리자용 CLI 도구)
 
-실행: python -m pipeline.save_to_db
+실행:
+  python -m pipeline.utils.save_to_db --user-id 3 --photo-dir /path/to/photos
 """
 
 import os
 import sys
+import argparse
 
 from dotenv import load_dotenv
 
 load_dotenv()
 
-from pipeline.extract_gps import analyze_photo
-from pipeline.geocoder import get_geocoder
+from pipeline.utils.exif_reader import analyze_photo
+from pipeline.utils.geocoder import get_geocoder
 from db.schema import get_connection
 from db.crud import insert_photo
 
-USER_ID = 1  # 단일 사용자 고정
-
 
 def main():
-    photo_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    parser = argparse.ArgumentParser(
+        description="로컬 사진 디렉토리를 DB에 저장하는 관리자용 CLI 도구"
+    )
+    parser.add_argument(
+        "--user-id", type=int, required=True,
+        help="저장할 사용자 ID (필수)",
+    )
+    parser.add_argument(
+        "--photo-dir", type=str, default=None,
+        help="사진 디렉토리 경로 (기본: 스크립트 상위 폴더)",
+    )
+    args = parser.parse_args()
+
+    user_id = args.user_id
+    photo_dir = args.photo_dir or os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
     photos = sorted(
         os.path.join(photo_dir, f)
         for f in os.listdir(photo_dir)
@@ -28,12 +43,12 @@ def main():
     )
 
     if not photos:
-        print("이미지 파일을 찾을 수 없습니다.")
+        print(f"이미지 파일을 찾을 수 없습니다: {photo_dir}")
         sys.exit(1)
 
     geocoder = get_geocoder()
     provider = type(geocoder).__name__
-    print(f"총 {len(photos)}개 사진 발견")
+    print(f"총 {len(photos)}개 사진 발견 (user_id={user_id})")
     print(f"역지오코딩: {provider}")
 
     conn = get_connection()
@@ -52,7 +67,7 @@ def main():
 
             photo_id = insert_photo(
                 conn,
-                user_id=USER_ID,
+                user_id=user_id,
                 file_path=photo_path,
                 lat=lat,
                 lon=lon,

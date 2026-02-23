@@ -238,6 +238,13 @@ def list_photos(conn, user_id, limit=100):
         return [dict(zip(cols, row)) for row in cur.fetchall()]
 
 
+def list_all_user_ids(conn) -> list[int]:
+    """DB에 등록된 모든 user_id 목록을 반환한다 (파이프라인 CLI 전체 유저 순회용)."""
+    with conn.cursor() as cur:
+        cur.execute("SELECT DISTINCT id FROM users ORDER BY id")
+        return [row[0] for row in cur.fetchall()]
+
+
 def list_unclustered_photos(conn, user_id, limit=1000):
     """event_id가 없는 사진 목록을 시간순으로 조회한다."""
     sql = """
