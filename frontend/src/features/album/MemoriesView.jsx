@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { api } from '../../api/client';
-import { useAuth } from '../../contexts/AuthContext';
+import { useAuth } from '../../contexts/useAuth';
 import { BookOpen } from 'lucide-react';
 
 // 메모리 박스 컴포넌트: 호버 시 가로 자동 스크롤 기능 및 텍스트 레이아웃

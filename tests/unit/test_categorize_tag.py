@@ -1,25 +1,30 @@
-"""pipeline/steps/02_tagging.py:categorize_tag() 단위 테스트.
+"""pipeline/core/ram_tagger.py:categorize_tag() 단위 테스트.
 
 RAM++ (ram/torch 패키지) 미설치 환경에서도 테스트 가능하도록
-02_tagging 가 의존하는 무거운 모듈을 통째로 mock 처리한다.
+ram_tagger가 의존하는 무거운 모듈을 통째로 mock 처리한다.
 """
 
-import importlib
 import sys
 from unittest.mock import MagicMock
 
 import pytest
 
-# ram_tagger 모듈 자체를 mock (torch, ram 등 무거운 의존성 우회)
-_mock_ram_tagger = MagicMock()
-_mock_ram_tagger.extract_tags_batch = MagicMock()
-_mock_ram_tagger.ImageTagResult = MagicMock()
-_mock_ram_tagger.TagResult = MagicMock()
-sys.modules["pipeline.core.ram_tagger"] = _mock_ram_tagger
+# ram_tagger.py의 무거운 의존성을 mock (torch, ram, PIL)
+_mock_torch = MagicMock()
+sys.modules.setdefault("torch", _mock_torch)
+sys.modules.setdefault("torch.nn", _mock_torch.nn)
+sys.modules.setdefault("torch.nn.functional", _mock_torch.nn.functional)
+sys.modules.setdefault("torch.backends", _mock_torch.backends)
+sys.modules.setdefault("torch.backends.mps", _mock_torch.backends.mps)
 
-# 이제 안전하게 02_tagging import
-tagging = importlib.import_module("pipeline.steps.02_tagging")
-categorize_tag = tagging.categorize_tag
+_mock_ram = MagicMock()
+sys.modules.setdefault("ram", _mock_ram)
+sys.modules.setdefault("ram.models", _mock_ram.models)
+
+sys.modules.setdefault("PIL", MagicMock())
+
+# 이제 안전하게 ram_tagger import
+from pipeline.core.ram_tagger import categorize_tag
 
 
 # ---------------------------------------------------------------------------

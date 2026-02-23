@@ -10,6 +10,7 @@ export default function UploadModal({ isOpen, onClose }) {
     const [errorMsg, setErrorMsg] = useState('');
     const fileInputRef = useRef(null);
     const closeTimerRef = useRef(null);
+    const uploadCounterRef = useRef(0);
 
     const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB
 
@@ -87,7 +88,8 @@ export default function UploadModal({ isOpen, onClose }) {
         try {
             await Promise.all(files.map(file => api.uploadPhoto(file)));
             setStatus('success');
-            window.dispatchEvent(new CustomEvent('photoUploaded', { detail: { timestamp: Date.now() } }));
+            uploadCounterRef.current += 1;
+            window.dispatchEvent(new CustomEvent('photoUploaded', { detail: { seq: uploadCounterRef.current } }));
             // 2초 후 자동 닫기 (ref로 cleanup 가능하게)
             closeTimerRef.current = setTimeout(() => {
                 handleClose();
