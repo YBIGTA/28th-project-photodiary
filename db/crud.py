@@ -238,6 +238,32 @@ def list_photos(conn, user_id, limit=100):
         return [dict(zip(cols, row)) for row in cur.fetchall()]
 
 
+def list_all_user_ids(conn) -> list[int]:
+    """DB에 등록된 모든 user_id 목록을 반환한다 (파이프라인 CLI 전체 유저 순회용)."""
+    with conn.cursor() as cur:
+        cur.execute("SELECT DISTINCT id FROM users ORDER BY id")
+        return [row[0] for row in cur.fetchall()]
+
+
+def get_photo_keywords(conn, photo_id: int) -> list[str]:
+    """photo_keywords + keywords 테이블에서 해당 사진의 키워드 목록 조회.
+
+    Returns
+    -------
+    list[str] — 키워드 이름 목록 (중요도 높은 순)
+    """
+    sql = """
+        SELECT k.name
+        FROM photo_keywords pk
+        JOIN keywords k ON pk.keyword_id = k.id
+        WHERE pk.photo_id = %s
+        ORDER BY pk.importance DESC
+    """
+    with conn.cursor() as cur:
+        cur.execute(sql, (photo_id,))
+        return [row[0] for row in cur.fetchall()]
+
+
 def list_unclustered_photos(conn, user_id, limit=1000):
     """event_id가 없는 사진 목록을 시간순으로 조회한다."""
     sql = """

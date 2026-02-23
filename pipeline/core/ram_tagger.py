@@ -422,3 +422,60 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+
+# ============================================================
+# 태그 카테고리 분류 (DB 저장용)
+# ============================================================
+
+_PERSON_TAGS = frozenset({
+    "person", "man", "woman", "boy", "girl", "child", "baby", "people",
+    "teenager", "adult", "elder", "couple", "crowd", "family", "kid",
+    "female", "male", "lady", "gentleman", "toddler", "infant",
+    "bride", "groom", "model", "player", "athlete", "soldier",
+    "student", "teacher", "chef", "doctor", "nurse", "worker",
+})
+
+_ACTIVITY_TAGS = frozenset({
+    "walk", "run", "sit", "stand", "eat", "drink", "cook", "read",
+    "write", "play", "swim", "dance", "sing", "jump", "climb",
+    "ride", "drive", "fly", "ski", "surf", "skate", "hike",
+    "sleep", "lay", "talk", "smile", "laugh", "cry", "wave",
+    "throw", "catch", "kick", "hit", "hold", "carry", "push",
+    "pull", "lift", "cut", "paint", "draw", "photograph", "shop",
+    "travel", "camp", "fish", "hunt", "celebrate", "pray",
+    "exercise", "stretch", "yoga", "meditate", "work", "study",
+    "race", "compete", "perform", "juggle", "balance",
+})
+
+_PLACE_TAGS = frozenset({
+    "beach", "mountain", "forest", "park", "garden", "street",
+    "road", "bridge", "building", "house", "apartment", "hotel",
+    "restaurant", "cafe", "bar", "church", "temple", "mosque",
+    "school", "university", "hospital", "airport", "station",
+    "market", "mall", "store", "shop", "museum", "library",
+    "stadium", "gym", "pool", "playground", "zoo", "aquarium",
+    "farm", "field", "lake", "river", "ocean", "sea", "island",
+    "desert", "cave", "waterfall", "city", "town", "village",
+    "countryside", "suburb", "downtown", "harbor", "port",
+    "kitchen", "bedroom", "bathroom", "living room", "office",
+    "classroom", "hallway", "balcony", "rooftop", "basement",
+    "garage", "yard", "patio", "courtyard", "lobby",
+})
+
+
+def categorize_tag(tag_en: str) -> str:
+    """RAM++ 영어 태그를 DB 카테고리로 분류.
+
+    Returns
+    -------
+    str — 'person' | 'activity' | 'place' | 'object'
+    """
+    tag_lower = tag_en.lower().strip()
+    if tag_lower in _PERSON_TAGS:
+        return "person"
+    if tag_lower in _ACTIVITY_TAGS:
+        return "activity"
+    if tag_lower in _PLACE_TAGS:
+        return "place"
+    return "object"

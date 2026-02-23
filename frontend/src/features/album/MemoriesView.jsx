@@ -1,5 +1,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { api } from '../../api/client';
+import { useAuth } from '../../contexts/AuthContext';
+import { BookOpen } from 'lucide-react';
 
 // 메모리 박스 컴포넌트: 호버 시 가로 자동 스크롤 기능 및 텍스트 레이아웃
 const MemoryBox = ({ evt }) => {
@@ -86,6 +88,7 @@ const MemoryBox = ({ evt }) => {
 };
 
 export default function MemoriesView() {
+    const { isLoggedIn } = useAuth();
     const [events, setEvents] = useState([]);
     const [photos, setPhotos] = useState([]);
 
@@ -128,10 +131,14 @@ export default function MemoriesView() {
     return (
         <div className="h-full flex flex-col bg-transparent overflow-y-auto w-full">
             {/* 상단 패딩 약간 */}
-            <div className="p-4 md:p-8">
+            <div className="p-4 md:p-8 flex-1 flex flex-col">
                 {events.length === 0 ? (
-                    <div className="text-center text-slate-400 py-20">
-                        저장된 추억이 없습니다.
+                    <div className="flex-1 flex flex-col items-center justify-center text-slate-400 min-h-[50vh] space-y-3">
+                        <div className="w-16 h-16 bg-[#F2EEE4] text-[#D7AD7E] rounded-full flex items-center justify-center mb-2">
+                            <BookOpen size={32} />
+                        </div>
+                        <h3 className="text-xl font-bold text-[#6B6653]">{isLoggedIn ? '빈 갤러리' : '로그인이 필요합니다'}</h3>
+                        <p className="text-[#6B6653]/70 font-medium">{isLoggedIn ? '사진을 업로드해 보세요!' : '로그인하여 사진을 업로드해 보세요.'}</p>
                     </div>
                 ) : (
                     <div className="max-w-7xl mx-auto w-full">

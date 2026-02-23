@@ -2,12 +2,13 @@
 Semantic Search 테스트 스크립트
 
 사용법:
-  python -m pipeline.search_test "부산에서 피자 먹은 사진"
-  python -m pipeline.search_test "카페에서 커피" --city 서울
-  python -m pipeline.search_test                          # 대화형 모드
+  python -m pipeline.utils.search_test "부산에서 피자 먹은 사진" --user-id 1
+  python -m pipeline.utils.search_test "카페에서 커피" --user-id 1 --city 서울
+  python -m pipeline.utils.search_test --user-id 1        # 대화형 모드
 """
 
 import sys
+import argparse
 
 from dotenv import load_dotenv
 
@@ -17,12 +18,10 @@ from db.schema import get_connection
 from db.crud import search_photos, search_photos_filtered
 from pipeline.core.embedder import embed_query
 
-USER_ID = 1
 
-
-def run_search(conn, query, city=None, district=None, limit=5):
+def run_search(conn, query, user_id: int, city=None, district=None, limit=5):
     """쿼리 실행 + 결과 출력."""
-    print(f'\n검색: "{query}"')
+    print(f'\n검색: "{query}" (user_id={user_id})')
     if city:
         print(f"  필터: city={city}")
     if district:
@@ -32,15 +31,15 @@ def run_search(conn, query, city=None, district=None, limit=5):
 
     if city or district:
         results = search_photos_filtered(
-            conn, query_vec, USER_ID, limit=limit,
+            conn, query_vec, user_id, limit=limit,
             city=city, district=district,
         )
     else:
-        results = search_photos(conn, query_vec, USER_ID, limit=limit)
+        results = search_photos(conn, query_vec, user_id, limit=limit)
 
     if not results:
         print("\n  결과 없음. (photo_embeddings 테이블이 비어있을 수 있음)")
-        print("  → python -m pipeline.save_embeddings 를 먼저 실행하세요.")
+        print("  → python -m pipeline.steps.04_embedding 를 먼저 실행하세요.")
         return
 
     print(f"\n  {'순위':<4} {'ID':<6} {'유사도':<8} {'도시':<12} {'건물/장소':<20} {'촬영일'}")
@@ -54,10 +53,10 @@ def run_search(conn, query, city=None, district=None, limit=5):
         print(f"  {i:<4} {r['id']:<6} {sim:<8} {city_val:<12} {building:<20} {taken}")
 
 
-def interactive_mode(conn):
+def interactive_mode(conn, user_id: int):
     """대화형 검색 모드."""
     print("=" * 60)
-    print("PicStory Semantic Search (MVP)")
+    print(f"PicTrace Semantic Search (user_id={user_id})")
     print("종료: q 또는 Ctrl+C")
     print("필터 예시: 부산에서 피자 --city 부산")
     print("=" * 60)
@@ -73,7 +72,6 @@ def interactive_mode(conn):
             print("종료.")
             break
 
-        # 간단한 --city, --district 파싱
         city = district = None
         parts = raw.split("--city")
         if len(parts) == 2:
@@ -89,41 +87,25 @@ def interactive_mode(conn):
             print("쿼리를 입력하세요.")
             continue
 
-        run_search(conn, raw, city=city, district=district)
+        run_search(conn, raw, user_id=user_id, city=city, district=district)
 
 
 def main():
+    parser = argparse.ArgumentParser(description="시맨틱 사진 검색 테스트")
+    parser.add_argument("query", nargs="?", help="검색 쿼리 (없으면 대화형 모드)")
+    parser.add_argument("--user-id", type=int, required=True, help="검색 대상 사용자 ID")
+    parser.add_argument("--city", type=str, default=None, help="도시 필터")
+    parser.add_argument("--district", type=str, default=None, help="구/동 필터")
+    parser.add_argument("--limit", type=int, default=5, help="최대 결과 수 (기본: 5)")
+    args = parser.parse_args()
+
     conn = get_connection()
-
     try:
-        # 인자가 있으면 단발 검색, 없으면 대화형
-        args = sys.argv[1:]
-
-        if args:
-            query = []
-            city = district = None
-            i = 0
-            while i < len(args):
-                if args[i] == "--city" and i + 1 < len(args):
-                    city = args[i + 1]
-                    i += 2
-                elif args[i] == "--district" and i + 1 < len(args):
-                    district = args[i + 1]
-                    i += 2
-                elif args[i] == "--limit" and i + 1 < len(args):
-                    i += 2  # limit은 기본값 사용
-                else:
-                    query.append(args[i])
-                    i += 1
-
-            query_text = " ".join(query)
-            if query_text:
-                run_search(conn, query_text, city=city, district=district)
-            else:
-                print("쿼리를 입력하세요.")
+        if args.query:
+            run_search(conn, args.query, user_id=args.user_id,
+                       city=args.city, district=args.district, limit=args.limit)
         else:
-            interactive_mode(conn)
-
+            interactive_mode(conn, user_id=args.user_id)
     finally:
         conn.close()
 

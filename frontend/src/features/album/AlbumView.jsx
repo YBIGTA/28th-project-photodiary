@@ -1,8 +1,10 @@
 import React, { useEffect, useState, useRef, useMemo } from 'react';
 import { api } from '../../api/client';
-import { Search, ArrowDownUp, Grid } from 'lucide-react';
+import { useAuth } from '../../contexts/AuthContext';
+import { Search, ArrowDownUp, Grid, Image as ImageIcon } from 'lucide-react';
 
 export default function AlbumView({ onSearchFocus }) {
+    const { isLoggedIn } = useAuth();
     const [photos, setPhotos] = useState([]);
     const bottomRef = useRef(null);
 
@@ -95,24 +97,33 @@ export default function AlbumView({ onSearchFocus }) {
             </div>
 
             {/* Photo Grid Area */}
-            <div className="flex-1 overflow-y-auto w-full">
-                {/* Grid container with dynamic columns */}
-                <div className={`grid ${gridClassMap[gridCols]} gap-[2px] p-[2px] bg-slate-100 w-full mb-8`}>
-                    {sortedPhotos.map((photo) => (
-                        <div
-                            key={photo.id}
-                            className="relative aspect-square bg-slate-200 overflow-hidden flex items-center justify-center group cursor-pointer"
-                        >
-                            <img
-                                src={photo.url}
-                                alt={photo.caption || "Photo"}
-                                className="w-full h-full object-cover"
-                                loading="lazy"
-                            />
-                            <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors pointer-events-none" />
+            <div className="flex-1 overflow-y-auto w-full flex flex-col">
+                {sortedPhotos.length === 0 ? (
+                    <div className="flex-1 flex flex-col items-center justify-center text-slate-400 min-h-[50vh] space-y-3">
+                        <div className="w-16 h-16 bg-[#F2EEE4] text-[#D7AD7E] rounded-full flex items-center justify-center mb-2">
+                            <ImageIcon size={32} />
                         </div>
-                    ))}
-                </div>
+                        <h3 className="text-xl font-bold text-[#6B6653]">{isLoggedIn ? '빈 갤러리' : '로그인이 필요합니다'}</h3>
+                        <p className="text-[#6B6653]/70 font-medium">{isLoggedIn ? '사진을 업로드해 보세요!' : '로그인하여 사진을 업로드해 보세요.'}</p>
+                    </div>
+                ) : (
+                    <div className={`grid ${gridClassMap[gridCols]} gap-[2px] p-[2px] bg-slate-100 w-full mb-8`}>
+                        {sortedPhotos.map((photo) => (
+                            <div
+                                key={photo.id}
+                                className="relative aspect-square bg-slate-200 overflow-hidden flex items-center justify-center group cursor-pointer"
+                            >
+                                <img
+                                    src={photo.url}
+                                    alt={photo.caption || "Photo"}
+                                    className="w-full h-full object-cover"
+                                    loading="lazy"
+                                />
+                                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors pointer-events-none" />
+                            </div>
+                        ))}
+                    </div>
+                )}
 
                 {/* Element to scroll to */}
                 <div ref={bottomRef} className="h-4 w-full" />
