@@ -651,46 +651,6 @@ def search_photos_filtered(conn, query_embedding, user_id, limit=5,
         return [dict(zip(cols, row)) for row in cur.fetchall()]
 
 
-# ── Diary 관련 ──
-
-def insert_diary(conn, user_id: int, diary_date, content: str, commit=True) -> int:
-    """diaries 테이블에 일기 INSERT (이미 존재하면 내용 업데이트).
-
-    Returns
-    -------
-    int — 생성/갱신된 diary id
-    """
-    sql = """
-        INSERT INTO diaries (user_id, diary_date, content)
-        VALUES (%s, %s, %s)
-        ON CONFLICT (user_id, diary_date)
-        DO UPDATE SET content = EXCLUDED.content
-        RETURNING id
-    """
-    with conn.cursor() as cur:
-        cur.execute(sql, (user_id, diary_date, content))
-        diary_id = cur.fetchone()[0]
-    if commit:
-        conn.commit()
-    return diary_id
-
-
-def get_diary(conn, user_id: int, diary_date) -> dict | None:
-    """특정 날짜의 일기 1건 조회."""
-    sql = """
-        SELECT id, user_id, diary_date, content, created_at
-        FROM diaries
-        WHERE user_id = %s AND diary_date = %s
-    """
-    with conn.cursor() as cur:
-        cur.execute(sql, (user_id, diary_date))
-        row = cur.fetchone()
-        if row is None:
-            return None
-        cols = [desc[0] for desc in cur.description]
-    return dict(zip(cols, row))
-
-
 def get_diaries_by_range(conn, user_id: int, date_from, date_to) -> list[dict]:
     """날짜 범위의 일기 목록 조회 (오래된 순)."""
     sql = """
