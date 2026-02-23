@@ -60,6 +60,12 @@ export default function ChatView() {
                 ...p,
                 url: api.getPhotoImageUrl(p.id),
                 tags: [p.city, p.building || p.road].filter(Boolean),
+                caption: p.caption,
+                date: p.taken_at ? new Date(p.taken_at).toLocaleDateString() : '',
+                taken_at: p.taken_at,
+                city: p.city,
+                road: p.road,
+                building: p.building,
             }));
 
             const aiMsg = {

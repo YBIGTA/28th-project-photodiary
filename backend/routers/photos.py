@@ -42,7 +42,10 @@ def search_photos_endpoint(
 
 
 @router.get("/{photo_id}/image")
-def get_photo_image(photo_id: int):
+def get_photo_image(
+    photo_id: int,
+    user_id: int = Depends(get_current_user_id),
+):
     """photo_id에 해당하는 이미지를 반환한다.
 
     - S3 URL이 저장된 경우: 307 Redirect (브라우저가 S3에서 직접 다운로드)
@@ -51,7 +54,7 @@ def get_photo_image(photo_id: int):
     conn = get_connection()
     try:
         photo = get_photo(conn, photo_id)
-        if not photo:
+        if not photo or photo["user_id"] != user_id:
             raise HTTPException(status_code=404, detail="Photo not found")
 
         file_path = photo["file_path"]

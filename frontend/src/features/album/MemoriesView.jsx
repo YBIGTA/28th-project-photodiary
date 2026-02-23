@@ -42,8 +42,26 @@ const MemoryBox = ({ evt }) => {
     const month = dateObj.getMonth() + 1;
     const title = `${year}년 ${month}월, ${evt.location}`;
 
+    // 사진 캡션과 장소 정보를 기반으로 요약 생성
+    const captions = evt.photos
+        .map(p => p.caption)
+        .filter(Boolean);
+    const locations = [...new Set(
+        evt.photos
+            .map(p => [p.city, p.district, p.road, p.building].filter(Boolean).join(' '))
+            .filter(s => s.length > 0)
+    )];
     const day = dateObj.getDate();
-    const description = `${year}년 ${month}월 ${day}일 저녁, ${evt.location}에서 지갑을 잃어버렸지만 다행히 찾았고, 지인 3명과 함께 식사를 하며 즐거운 하루를 보냈다.`;
+
+    let description;
+    if (captions.length > 0) {
+        description = captions.slice(0, 3).join('. ');
+        if (captions.length > 3) description += ` 외 ${captions.length - 3}장`;
+    } else if (locations.length > 0) {
+        description = `${year}년 ${month}월 ${day}일, ${locations.join(', ')}에서의 추억`;
+    } else {
+        description = `${year}년 ${month}월 ${day}일, ${evt.photos.length}장의 사진`;
+    }
 
     return (
         <div
@@ -106,12 +124,21 @@ export default function MemoriesView() {
                             id: photo.event_id,
                             photos: [],
                             date: new Date(photo.taken_at).toLocaleDateString(),
-                            location: photo.road || photo.city || '추억의 장소',
+                            location: null,
                         };
+                    }
+                    // 장소 정보가 아직 없으면 현재 사진에서 채운다
+                    if (!acc[photo.event_id].location) {
+                        const loc = photo.road || photo.city;
+                        if (loc) acc[photo.event_id].location = loc;
                     }
                     acc[photo.event_id].photos.push(photo);
                     return acc;
                 }, {});
+                // 장소 정보가 없는 이벤트에 기본값 적용
+                Object.values(grouped).forEach(evt => {
+                    if (!evt.location) evt.location = '추억의 장소';
+                });
 
                 // 최신순으로 정렬합니다.
                 const eventArray = Object.values(grouped).sort((a, b) => {

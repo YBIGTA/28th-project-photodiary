@@ -1,0 +1,8 @@
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = [
+    "slow: 실제 ML 모델 로드가 필요한 느린 테스트",
+    "e2e: 실제 환경(DB, S3, ML) 전체 흐름 테스트",
+    "db: PostgreSQL 연결이 필요한 테스트",
+]
+asyncio_mode = "auto"

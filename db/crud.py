@@ -46,65 +46,6 @@ def get_user_by_id(conn, user_id: int) -> dict | None:
     return dict(zip(cols, row))
 
 
-# ── Diary 관련 ──
-
-def insert_diary(conn, user_id: int, diary_date, content: str, commit=True):
-    """일기 저장 (UPSERT — 같은 날짜면 내용 갱신)."""
-    sql = """
-        INSERT INTO diaries (user_id, diary_date, content)
-        VALUES (%s, %s, %s)
-        ON CONFLICT (user_id, diary_date)
-        DO UPDATE SET content = EXCLUDED.content, created_at = now()
-        RETURNING id
-    """
-    with conn.cursor() as cur:
-        cur.execute(sql, (user_id, diary_date, content))
-        diary_id = cur.fetchone()[0]
-    if commit:
-        conn.commit()
-    return diary_id
-
-
-def get_diary(conn, user_id: int, diary_date) -> dict | None:
-    """특정 날짜 일기 조회."""
-    sql = """
-        SELECT id, user_id, diary_date, content, created_at
-        FROM diaries
-        WHERE user_id = %s AND diary_date = %s
-    """
-    with conn.cursor() as cur:
-        cur.execute(sql, (user_id, diary_date))
-        row = cur.fetchone()
-        if row is None:
-            return None
-        cols = [desc[0] for desc in cur.description]
-    return dict(zip(cols, row))
-
-
-def list_diaries(conn, user_id: int, date_from=None, date_to=None) -> list[dict]:
-    """범위 내 일기 목록 조회."""
-    conditions = ["user_id = %s"]
-    params: list = [user_id]
-    if date_from:
-        conditions.append("diary_date >= %s")
-        params.append(date_from)
-    if date_to:
-        conditions.append("diary_date <= %s")
-        params.append(date_to)
-
-    where = " AND ".join(conditions)
-    sql = f"""
-        SELECT id, user_id, diary_date, content, created_at
-        FROM diaries
-        WHERE {where}
-        ORDER BY diary_date DESC
-    """
-    with conn.cursor() as cur:
-        cur.execute(sql, params)
-        cols = [desc[0] for desc in cur.description]
-        return [dict(zip(cols, row)) for row in cur.fetchall()]
-
-
 def update_caption(conn, photo_id: int, caption: str, commit=True):
     """사진의 캡션 업데이트."""
     sql = "UPDATE photos SET caption = %s WHERE id = %s"
