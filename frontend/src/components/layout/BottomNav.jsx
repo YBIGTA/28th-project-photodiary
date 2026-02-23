@@ -44,7 +44,7 @@ export default function BottomNav({ activeView, onNavigate, onUploadClick }) {
             {/* 중앙 업로드 기능 - 위로 확장되는 버튼 */}
             <div className="relative flex justify-center mx-1 w-12 h-12">
                 <button
-                    onClick={onUploadClick}
+                    onClick={isLoggedIn ? onUploadClick : openAuthModal}
                     className="absolute bottom-0 group bg-[#D7AD7E] hover:bg-[#c49b6c] text-white w-full rounded-2xl shadow-sm transition-all duration-300 overflow-hidden flex flex-col items-center justify-end h-12 hover:h-[72px] pb-[10px] z-40"
                 >
                     <span className="text-[10px] uppercase tracking-normal font-bold mb-1 opacity-0 group-hover:opacity-100 transition-all duration-300 translate-y-2 group-hover:translate-y-0 pointer-events-none">

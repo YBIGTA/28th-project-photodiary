@@ -69,7 +69,8 @@ class RAGEngine:
                 ],
                 temperature=temperature,
             )
-            return response.choices[0].message.content
+            content = response.choices[0].message.content
+            return content.strip() if content else ""
         except Exception as e:
             logger.error("LLM 호출 실패: %s", e)
             return ""

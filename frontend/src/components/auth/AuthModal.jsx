@@ -40,7 +40,7 @@ export default function AuthModal() {
     };
 
     return (
-        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={closeAuthModal}>
             <div
                 className="bg-[#FDFBF7] rounded-[2rem] w-full max-w-sm overflow-hidden shadow-2xl relative animate-in fade-in zoom-in-95 duration-200"
                 onClick={(e) => e.stopPropagation()}

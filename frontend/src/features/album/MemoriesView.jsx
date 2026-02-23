@@ -36,12 +36,12 @@ const MemoryBox = ({ evt }) => {
     }, [isHovered]);
 
     // 제목 포맷: "{year}년 {month}월, {place}"
-    const dateObj = new Date(evt.photos[0].taken_at);
+    const firstTakenAt = evt.photos[0]?.taken_at;
+    const dateObj = firstTakenAt ? new Date(firstTakenAt) : new Date();
     const year = dateObj.getFullYear();
     const month = dateObj.getMonth() + 1;
     const title = `${year}년 ${month}월, ${evt.location}`;
 
-    // 모의 설명 텍스트 (추후 파이프라인 LLM 텍스트로 대체)
     const day = dateObj.getDate();
     const description = `${year}년 ${month}월 ${day}일 저녁, ${evt.location}에서 지갑을 잃어버렸지만 다행히 찾았고, 지인 3명과 함께 식사를 하며 즐거운 하루를 보냈다.`;
 
@@ -90,14 +90,13 @@ const MemoryBox = ({ evt }) => {
 export default function MemoriesView() {
     const { isLoggedIn } = useAuth();
     const [events, setEvents] = useState([]);
-    const [photos, setPhotos] = useState([]);
 
     useEffect(() => {
-        // 이벤트와 사진 데이터를 모두 불러옵니다.
+        if (!isLoggedIn) return;
+
         const fetchData = async () => {
             try {
                 const allPhotos = await api.getPhotos(100);
-                setPhotos(allPhotos);
 
                 // event_id 기준으로 사진을 그룹화합니다.
                 const grouped = allPhotos.reduce((acc, photo) => {
@@ -126,7 +125,7 @@ export default function MemoriesView() {
         };
 
         fetchData();
-    }, []);
+    }, [isLoggedIn]);
 
     return (
         <div className="h-full flex flex-col bg-transparent overflow-y-auto w-full">
@@ -150,7 +149,7 @@ export default function MemoriesView() {
             </div>
 
             {/* 가로 스크롤바 숨기기 전역 설정 */}
-            <style jsx>{`
+            <style>{`
                 .hide-scrollbar::-webkit-scrollbar {
                     display: none;
                 }
