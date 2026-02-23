@@ -21,7 +21,7 @@ from db.crud import (
 )
 from db.schema import get_connection
 
-from pipeline.steps.01_clustering import cluster_events, resolve_photo_event_updates
+from pipeline.steps.clustering import cluster_events, resolve_photo_event_updates
 
 
 def _build_cluster_input(photos: list[dict]) -> pd.DataFrame:

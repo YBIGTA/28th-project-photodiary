@@ -5,7 +5,7 @@ import os
 import time
 from datetime import datetime
 
-from pipeline.geocoder import get_geocoder, PlaceInfo
+from pipeline.utils.geocoder import get_geocoder, PlaceInfo
 
 
 def get_exif_data(image_path):

@@ -55,7 +55,7 @@ export default function AuthModal() {
 
                 <div className="p-8">
                     <h2 className="text-2xl font-bold text-[#6B6653] mb-6 text-center">
-                        {isLoginView ? 'Welcome Back' : 'Create Account'}
+                        {isLoginView ? '로그인' : '회원가입'}
                     </h2>
 
                     {error && (
@@ -67,19 +67,19 @@ export default function AuthModal() {
                     <form onSubmit={handleSubmit} className="space-y-4">
                         {!isLoginView && (
                             <div>
-                                <label className="block text-sm font-medium text-[#6B6653] mb-1">Username</label>
+                                <label className="block text-sm font-medium text-[#6B6653] mb-1">아이디</label>
                                 <input
                                     type="text"
                                     required
                                     value={username}
                                     onChange={(e) => setUsername(e.target.value)}
                                     className="w-full px-4 py-3 bg-white border border-[#EAE5D9] rounded-xl focus:outline-none focus:ring-2 focus:ring-[#D7AD7E] focus:border-transparent text-[#6B6653]"
-                                    placeholder="Your Name"
+                                    placeholder="멋진 이름"
                                 />
                             </div>
                         )}
                         <div>
-                            <label className="block text-sm font-medium text-[#6B6653] mb-1">Email</label>
+                            <label className="block text-sm font-medium text-[#6B6653] mb-1">이메일</label>
                             <input
                                 type="email"
                                 required
@@ -90,7 +90,7 @@ export default function AuthModal() {
                             />
                         </div>
                         <div>
-                            <label className="block text-sm font-medium text-[#6B6653] mb-1">Password</label>
+                            <label className="block text-sm font-medium text-[#6B6653] mb-1">비밀번호</label>
                             <input
                                 type="password"
                                 required
@@ -109,13 +109,13 @@ export default function AuthModal() {
                             {isLoading ? (
                                 <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
                             ) : (
-                                isLoginView ? 'Sign In' : 'Sign Up'
+                                isLoginView ? '로그인' : '회원가입 하기'
                             )}
                         </button>
                     </form>
 
                     <div className="mt-6 text-center text-sm text-[#6B6653]">
-                        {isLoginView ? "Don't have an account? " : "Already have an account? "}
+                        {isLoginView ? "아직 계정이 없으신가요? " : "이미 계정이 있으신가요? "}
                         <button
                             onClick={() => {
                                 setIsLoginView(!isLoginView);
@@ -123,7 +123,7 @@ export default function AuthModal() {
                             }}
                             className="font-semibold text-[#B6694E] hover:underline focus:outline-none"
                         >
-                            {isLoginView ? 'Sign Up' : 'Sign In'}
+                            {isLoginView ? '회원가입' : '로그인'}
                         </button>
                     </div>
                 </div>
