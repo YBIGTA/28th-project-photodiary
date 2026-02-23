@@ -1,6 +1,7 @@
+from __future__ import annotations
 """JWT 인증 유틸리티 — 비밀번호 해싱 + 토큰 생성/검증."""
 
-from __future__ import annotations
+from typing import Optional
 
 import os
 from datetime import datetime, timedelta, timezone
@@ -39,7 +40,7 @@ def create_access_token(user_id: int, email: str) -> str:
     return jwt.encode(payload, SECRET_KEY, algorithm=ALGORITHM)
 
 
-def decode_access_token(token: str) -> dict | None:
+def decode_access_token(token: str) -> Optional[dict]:
     """JWT 토큰 디코딩. 유효하면 payload dict, 아니면 None."""
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])

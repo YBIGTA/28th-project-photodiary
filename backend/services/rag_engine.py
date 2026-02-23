@@ -1,3 +1,4 @@
+from __future__ import annotations
 """
 rag_engine.py: 의도 분류 → 검색/조회 → 답변 생성을 조율하는 핵심 엔진.
 
@@ -12,7 +13,7 @@ rag_engine.py: 의도 분류 → 검색/조회 → 답변 생성을 조율하는
 3. 구조화된 JSON 응답 반환
 """
 
-from __future__ import annotations
+from typing import Optional
 
 import logging
 import os
@@ -500,8 +501,8 @@ _DISTRICT_SUFFIXES = ("구", "동", "읍", "면", "리", "로", "길")
 
 
 def _resolve_location(
-    location: str | None,
-) -> tuple[str | None, str | None, str | None]:
+    location: Optional[str],
+) -> tuple[Optional[str], Optional[str], Optional[str]]:
     """location 문자열을 (state, city, district) 로 분류.
 
     광역시/도 접미사로 끝나면 state, 한국 행정구역 접미사(구·동·읍·면 등)로
@@ -516,7 +517,7 @@ def _resolve_location(
     return None, location, None
 
 
-def _parse_date(date_str: str | None) -> datetime | None:
+def _parse_date(date_str: Optional[str]) -> Optional[datetime]:
     """YYYY-MM-DD 문자열을 datetime 으로 변환. 실패 시 None."""
     if not date_str:
         return None

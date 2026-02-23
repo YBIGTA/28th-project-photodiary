@@ -60,6 +60,7 @@ export default function UploadModal({ isOpen, onClose }) {
         try {
             await api.uploadPhoto(file);
             setStatus('success');
+            window.dispatchEvent(new CustomEvent('photoUploaded', { detail: { timestamp: Date.now() } }));
             // 2초 후 자동 닫기
             setTimeout(() => {
                 handleClose();

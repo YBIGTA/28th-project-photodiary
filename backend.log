@@ -1,2 +1,84 @@
-INFO:     Will watch for changes in these directories: ['/Users/ilop0/28th-project-photodiary']
-ERROR:    [Errno 48] Address already in use
+/Users/ilop0/28th-project-photodiary/venv/lib/python3.9/site-packages/timm/models/layers/__init__.py:49: FutureWarning: Importing from timm.models.layers is deprecated, please import via timm.layers
+  warnings.warn(f"Importing from {__name__} is deprecated, please import via timm.layers", FutureWarning)
+/Users/ilop0/28th-project-photodiary/venv/lib/python3.9/site-packages/timm/models/hub.py:4: FutureWarning: Importing from timm.models.hub is deprecated, please import via timm.models
+  warnings.warn(f"Importing from {__name__} is deprecated, please import via timm.models", FutureWarning)
+/Users/ilop0/28th-project-photodiary/venv/lib/python3.9/site-packages/timm/models/registry.py:4: FutureWarning: Importing from timm.models.registry is deprecated, please import via timm.models
+  warnings.warn(f"Importing from {__name__} is deprecated, please import via timm.models", FutureWarning)
+/Users/ilop0/28th-project-photodiary/venv/lib/python3.9/site-packages/timm/models/helpers.py:7: FutureWarning: Importing from timm.models.helpers is deprecated, please import via timm.models
+  warnings.warn(f"Importing from {__name__} is deprecated, please import via timm.models", FutureWarning)
+INFO:     Started server process [34642]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
+INFO:     127.0.0.1:55991 - "GET /api/photos/?limit=100 HTTP/1.1" 401 Unauthorized
+INFO:     127.0.0.1:55991 - "GET /api/photos/?limit=100 HTTP/1.1" 401 Unauthorized
+INFO:     127.0.0.1:55993 - "OPTIONS /api/auth/register HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55993 - "POST /api/auth/register HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56002 - "OPTIONS /api/photos/upload HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56002 - "POST /api/photos/upload HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56002 - "OPTIONS /api/photos/?limit=100 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56002 - "GET /api/photos/?limit=100 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56012 - "GET /api/photos/2/image HTTP/1.1" 307 Temporary Redirect
+체크포인트를 HuggingFace에서 다운로드합니다: xinyu1205/recognize-anything-plus-model/ram_plus_swin_large_14m.pth
+[RAM++] 모델 로드 중… (device=mps, ckpt=/Users/ilop0/.cache/huggingface/hub/models--xinyu1205--recognize-anything-plus-model/snapshots/84d4aee3a0265c4e0df1f714f0572011d1bf2ec3/ram_plus_swin_large_14m.pth)
+INFO:     127.0.0.1:56002 - "GET /api/photos/?limit=100 HTTP/1.1" 200 OK
+--------------
+/Users/ilop0/.cache/huggingface/hub/models--xinyu1205--recognize-anything-plus-model/snapshots/84d4aee3a0265c4e0df1f714f0572011d1bf2ec3/ram_plus_swin_large_14m.pth
+--------------
+load checkpoint from /Users/ilop0/.cache/huggingface/hub/models--xinyu1205--recognize-anything-plus-model/snapshots/84d4aee3a0265c4e0df1f714f0572011d1bf2ec3/ram_plus_swin_large_14m.pth
+vit: swin_l
+INFO:     127.0.0.1:56002 - "GET /api/photos/?limit=100 HTTP/1.1" 200 OK
+Pipeline error for photo 2: This modeling file requires the following packages that were not found in your environment: pyvips. Run `pip install pyvips`
+Traceback (most recent call last):
+  File "/Users/ilop0/28th-project-photodiary/pipeline/worker.py", line 100, in process_photo_pipeline
+    moon_results = generate_captions_batch([tmp_path], length="normal", show_progress=False)
+  File "/Users/ilop0/28th-project-photodiary/pipeline/core/moondream.py", line 149, in generate_captions_batch
+    model = load_model()
+  File "/Users/ilop0/28th-project-photodiary/pipeline/core/moondream.py", line 80, in load_model
+    _model = AutoModelForCausalLM.from_pretrained(
+  File "/Users/ilop0/28th-project-photodiary/venv/lib/python3.9/site-packages/transformers/models/auto/auto_factory.py", line 524, in from_pretrained
+    config, kwargs = AutoConfig.from_pretrained(
+  File "/Users/ilop0/28th-project-photodiary/venv/lib/python3.9/site-packages/transformers/models/auto/configuration_auto.py", line 985, in from_pretrained
+    config_class = get_class_from_dynamic_module(
+  File "/Users/ilop0/28th-project-photodiary/venv/lib/python3.9/site-packages/transformers/dynamic_module_utils.py", line 502, in get_class_from_dynamic_module
+    final_module = get_cached_module_file(
+  File "/Users/ilop0/28th-project-photodiary/venv/lib/python3.9/site-packages/transformers/dynamic_module_utils.py", line 365, in get_cached_module_file
+    get_cached_module_file(
+  File "/Users/ilop0/28th-project-photodiary/venv/lib/python3.9/site-packages/transformers/dynamic_module_utils.py", line 365, in get_cached_module_file
+    get_cached_module_file(
+  File "/Users/ilop0/28th-project-photodiary/venv/lib/python3.9/site-packages/transformers/dynamic_module_utils.py", line 327, in get_cached_module_file
+    modules_needed = check_imports(resolved_module_file)
+  File "/Users/ilop0/28th-project-photodiary/venv/lib/python3.9/site-packages/transformers/dynamic_module_utils.py", line 182, in check_imports
+    raise ImportError(
+ImportError: This modeling file requires the following packages that were not found in your environment: pyvips. Run `pip install pyvips`
+[RAM++] 모델 로드 완료!
+[Moondream] 모델 로드 중… (device=mps, dtype=torch.float32)
+INFO:     127.0.0.1:56002 - "GET /api/photos/?limit=100 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56002 - "GET /api/photos/?limit=100 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56002 - "GET /api/photos/?limit=100 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56002 - "GET /api/photos/?limit=100 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56002 - "GET /api/photos/?limit=100 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56002 - "GET /api/photos/?limit=100 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56002 - "GET /api/photos/?limit=100 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56002 - "GET /api/photos/?limit=100 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56002 - "GET /api/photos/?limit=100 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56002 - "GET /api/photos/?limit=100 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56002 - "GET /api/photos/?limit=100 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56002 - "GET /api/photos/?limit=100 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56002 - "GET /api/photos/?limit=100 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56002 - "GET /api/photos/?limit=100 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56009 - "GET /api/photos/?limit=100 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56009 - "GET /api/photos/?limit=100 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56009 - "OPTIONS /api/chat/ HTTP/1.1" 200 OK
+Agent Router 분류 실패: Error code: 429 - {'error': {'message': 'You exceeded your current quota, please check your plan and billing details. For more information on this error, read the docs: https://platform.openai.com/docs/guides/error-codes/api-errors.', 'type': 'insufficient_quota', 'param': None, 'code': 'insufficient_quota'}}
+LLM 호출 실패: Error code: 429 - {'error': {'message': 'You exceeded your current quota, please check your plan and billing details. For more information on this error, read the docs: https://platform.openai.com/docs/guides/error-codes/api-errors.', 'type': 'insufficient_quota', 'param': None, 'code': 'insufficient_quota'}}
+INFO:     127.0.0.1:56009 - "POST /api/chat/ HTTP/1.1" 200 OK
+Agent Router 분류 실패: Error code: 429 - {'error': {'message': 'You exceeded your current quota, please check your plan and billing details. For more information on this error, read the docs: https://platform.openai.com/docs/guides/error-codes/api-errors.', 'type': 'insufficient_quota', 'param': None, 'code': 'insufficient_quota'}}
+LLM 호출 실패: Error code: 429 - {'error': {'message': 'You exceeded your current quota, please check your plan and billing details. For more information on this error, read the docs: https://platform.openai.com/docs/guides/error-codes/api-errors.', 'type': 'insufficient_quota', 'param': None, 'code': 'insufficient_quota'}}
+INFO:     127.0.0.1:56043 - "POST /api/chat/ HTTP/1.1" 200 OK
+Agent Router 분류 실패: Error code: 429 - {'error': {'message': 'You exceeded your current quota, please check your plan and billing details. For more information on this error, read the docs: https://platform.openai.com/docs/guides/error-codes/api-errors.', 'type': 'insufficient_quota', 'param': None, 'code': 'insufficient_quota'}}
+LLM 호출 실패: Error code: 429 - {'error': {'message': 'You exceeded your current quota, please check your plan and billing details. For more information on this error, read the docs: https://platform.openai.com/docs/guides/error-codes/api-errors.', 'type': 'insufficient_quota', 'param': None, 'code': 'insufficient_quota'}}
+INFO:     127.0.0.1:56057 - "POST /api/chat/ HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56091 - "GET /api/photos/?limit=100 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56091 - "GET /api/photos/?limit=100 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56095 - "GET /api/photos/2/image HTTP/1.1" 307 Temporary Redirect

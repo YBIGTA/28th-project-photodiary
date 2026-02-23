@@ -4,6 +4,7 @@ __pycache__/
 *.pyc
 .idea/
 .venv/
+venv/
 
 # image files
 *.jpeg
@@ -12,4 +13,4 @@ __pycache__/
 *.heic
 
 .claude/
-*.pdf
+*.pdfvenv/

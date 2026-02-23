@@ -1,3 +1,4 @@
+from __future__ import annotations
 """RAM++ (Recognize Anything Plus Plus) 이미지 태그/키워드 추출 모듈.
 
 모델: RAM++ Swin-Large (384×384 입력)
@@ -13,7 +14,7 @@
     python -m pipeline.ram_tagger --dir photos/ --batch-size 4
 """
 
-from __future__ import annotations
+from typing import Optional
 
 import os
 import argparse
@@ -106,7 +107,7 @@ def _resolve_checkpoint() -> str:
     return hf_hub_download(repo_id=_HF_REPO, filename=_HF_FILENAME)
 
 
-def load_model(pretrained_path: str | None = None):
+def load_model(pretrained_path: Optional[str] = None):
     """RAM++ 모델 싱글톤 로드.
 
     Returns
@@ -148,7 +149,7 @@ def load_model(pretrained_path: str | None = None):
 def _inference_with_confidence(
     model,
     images: torch.Tensor,
-    threshold: float | None = None,
+    threshold: Optional[float] = None,
 ) -> list[tuple[list[tuple[str, str]], list[float]]]:
     """RAM++ 모델 내부 logits에서 태그 + confidence 추출.
 
@@ -159,7 +160,7 @@ def _inference_with_confidence(
     ----------
     model : RAM++ 모델 (RAM_plus)
     images : torch.Tensor — shape (B, 3, 384, 384)
-    threshold : float | None — 전역 임계값 (None이면 태그별 기본 임계값 사용)
+    threshold : Optional[float] — 전역 임계값 (None이면 태그별 기본 임계값 사용)
 
     Returns
     -------
@@ -246,14 +247,14 @@ def _inference_with_confidence(
 
 def extract_tags(
     image_path: str,
-    threshold: float | None = None,
+    threshold: Optional[float] = None,
 ) -> ImageTagResult:
     """단일 이미지에서 태그 + confidence 추출.
 
     Parameters
     ----------
     image_path : str — 이미지 파일 경로
-    threshold : float | None — 태그 임계값 (None → 태그별 기본값)
+    threshold : Optional[float] — 태그 임계값 (None → 태그별 기본값)
 
     Returns
     -------
@@ -290,7 +291,7 @@ IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp", ".bmp", ".heic", ".heif"}
 def extract_tags_batch(
     image_paths: list[str],
     batch_size: int = 8,
-    threshold: float | None = None,
+    threshold: Optional[float] = None,
     show_progress: bool = True,
 ) -> list[ImageTagResult]:
     """배치 처리로 여러 이미지의 태그 추출.
@@ -299,7 +300,7 @@ def extract_tags_batch(
     ----------
     image_paths : list[str] — 이미지 파일 경로 목록
     batch_size : int — 배치 크기 (GPU VRAM에 따라 조절)
-    threshold : float | None — 태그 임계값
+    threshold : Optional[float] — 태그 임계값
     show_progress : bool — 진행률 표시
 
     Returns

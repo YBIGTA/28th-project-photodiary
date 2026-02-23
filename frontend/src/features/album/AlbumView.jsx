@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useRef, useMemo } from 'react';
 import { api } from '../../api/client';
 import { useAuth } from '../../contexts/AuthContext';
-import { Search, ArrowDownUp, Grid, Image as ImageIcon } from 'lucide-react';
+import { Search, ArrowDownUp, Grid, Image as ImageIcon, Loader2 } from 'lucide-react';
 
 export default function AlbumView({ onSearchFocus }) {
     const { isLoggedIn } = useAuth();
@@ -12,12 +12,47 @@ export default function AlbumView({ onSearchFocus }) {
     const [sortOrder, setSortOrder] = useState('oldest'); // 'oldest', 'newest'
     const [gridCols, setGridCols] = useState(5); // 1, 3, 5, 10
 
+    const [isTagging, setIsTagging] = useState(false);
+
     // Fetch photos
-    useEffect(() => {
+    const fetchPhotos = () => {
         api.getPhotos(100).then(data => {
             setPhotos(data);
         }).catch(console.error);
+    };
+
+    useEffect(() => {
+        fetchPhotos();
+
+        const handleUploadEvent = () => {
+            setIsTagging(true);
+            fetchPhotos();
+        };
+        window.addEventListener('photoUploaded', handleUploadEvent);
+        return () => window.removeEventListener('photoUploaded', handleUploadEvent);
     }, []);
+
+    // Polling effect while tagging
+    useEffect(() => {
+        if (!isTagging) return;
+
+        let pollCount = 0;
+        const interval = setInterval(() => {
+            pollCount++;
+            api.getPhotos(100).then(data => {
+                setPhotos(data);
+
+                // 최신 사진에 caption이 생겼거나(태깅 완료), 15번 폴링(45초) 경과 시 중지
+                const newest = [...data].sort((a, b) => b.id - a.id)[0];
+                if ((newest && newest.caption) || pollCount > 15) {
+                    setIsTagging(false);
+                    clearInterval(interval);
+                }
+            }).catch(console.error);
+        }, 3000);
+
+        return () => clearInterval(interval);
+    }, [isTagging]);
 
     // Derived sorted photos
     const sortedPhotos = useMemo(() => {
@@ -56,15 +91,23 @@ export default function AlbumView({ onSearchFocus }) {
             <div className="p-4 bg-[#FDFBF7]/80 backdrop-blur-md border-b border-black/5 sticky top-0 z-10 flex flex-col sm:flex-row gap-4 justify-between items-center w-full">
 
                 {/* Search Bar */}
-                <div className="relative w-full max-w-sm">
+                <div className="relative w-full max-w-[180px] shrink-0">
                     <input
                         type="text"
-                        placeholder="앨범 또는 사진 검색..."
+                        placeholder="검색은 Chat으로.."
                         onFocus={onSearchFocus}
-                        className="w-full pl-10 pr-4 py-2 bg-slate-100 rounded-xl outline-none focus:ring-2 focus:ring-sky-200 transition-shadow text-sm"
+                        className="w-full pl-10 pr-4 py-2 bg-slate-100 rounded-xl outline-none focus:ring-2 focus:ring-[#D7AD7E] transition-shadow text-sm"
                     />
                     <Search className="absolute left-3 top-2.5 text-slate-400" size={18} />
                 </div>
+
+                {/* Tagging Status */}
+                {isTagging && (
+                    <div className="flex items-center justify-center gap-2 text-[#B6694E] animate-pulse bg-[#F2EEE4] px-4 py-1.5 rounded-full border border-[#D7AD7E]/30 whitespace-nowrap mx-auto">
+                        <Loader2 size={16} className="animate-spin" />
+                        <span className="text-sm font-bold">이미지 태깅 중...</span>
+                    </div>
+                )}
 
                 {/* View Controls */}
                 <div className="flex items-center space-x-4">
