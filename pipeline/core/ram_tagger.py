@@ -312,7 +312,7 @@ def extract_tags_batch(
     use_fp16 = device.type == "cuda" and next(model.parameters()).dtype == torch.float16
 
     total = len(image_paths)
-    results: list[ImageTagResult] = []
+    results: list[ImageTagResult] = [None] * total  # 입력 순서 보장용 사전 할당
 
     for start in range(0, total, batch_size):
         end = min(start + batch_size, total)
@@ -320,7 +320,7 @@ def extract_tags_batch(
 
         # 이미지 로드 + 전처리
         tensors: list[torch.Tensor] = []
-        valid_indices: list[int] = []  # results 내 유효 위치
+        valid_indices: list[int] = []  # 전체 리스트 내 인덱스
 
         for i, path in enumerate(batch_paths):
             try:
@@ -329,7 +329,7 @@ def extract_tags_batch(
                 valid_indices.append(start + i)
             except Exception as e:
                 print(f"  [ERROR] {path}: {e}")
-                results.append(ImageTagResult(file_path=path, tags=[]))
+                results[start + i] = ImageTagResult(file_path=path, tags=[])
 
         if not tensors:
             continue
@@ -342,12 +342,13 @@ def extract_tags_batch(
             batch_result = _inference_with_confidence(model, batch_tensor, threshold)
 
         for idx_in_batch, (tags_raw, confs) in enumerate(batch_result):
-            path = image_paths[valid_indices[idx_in_batch]]
+            global_idx = valid_indices[idx_in_batch]
+            path = image_paths[global_idx]
             tags = [
                 TagResult(tag_en=en, tag_zh=zh, confidence=c)
                 for (en, zh), c in zip(tags_raw, confs)
             ]
-            results.append(ImageTagResult(file_path=path, tags=tags))
+            results[global_idx] = ImageTagResult(file_path=path, tags=tags)
 
         if show_progress:
             print(f"  [{end}/{total}] 처리 완료")

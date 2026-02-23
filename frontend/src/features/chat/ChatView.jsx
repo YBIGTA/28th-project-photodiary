@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Send, X, Calendar, MapPin, Image as ImageIcon } from 'lucide-react';
+import { Send, X, Image as ImageIcon } from 'lucide-react';
 import { api } from '../../api/client';
 import Lightbox from '../../components/common/Lightbox';
 
@@ -57,11 +57,9 @@ export default function ChatView() {
             const data = await api.chat(input);
 
             const photos = (data.photos || []).map(p => ({
-                id: p.id,
+                ...p,
                 url: api.getPhotoImageUrl(p.id),
                 tags: [p.city, p.building || p.road].filter(Boolean),
-                caption: p.caption,
-                date: p.taken_at ? new Date(p.taken_at).toLocaleDateString() : ''
             }));
 
             const aiMsg = {

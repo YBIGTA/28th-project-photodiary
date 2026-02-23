@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { X, UploadCloud, Image as ImageIcon, MapPin, CheckCircle, AlertCircle } from 'lucide-react';
 import { api } from '../../api/client';
 
@@ -9,6 +9,16 @@ export default function UploadModal({ isOpen, onClose }) {
     const [status, setStatus] = useState('idle'); // 'idle' | 'uploading' | 'success' | 'error'
     const [errorMsg, setErrorMsg] = useState('');
     const fileInputRef = useRef(null);
+    const closeTimerRef = useRef(null);
+
+    const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB
+
+    // setTimeout cleanup on unmount
+    useEffect(() => {
+        return () => {
+            if (closeTimerRef.current) clearTimeout(closeTimerRef.current);
+        };
+    }, []);
 
     if (!isOpen) return null;
 
@@ -17,9 +27,15 @@ export default function UploadModal({ isOpen, onClose }) {
     const handleFiles = (selectedFiles) => {
         if (!selectedFiles || selectedFiles.length === 0) return;
 
-        const validFiles = Array.from(selectedFiles).filter(f =>
-            supportedTypes.includes(f.type) || f.name.toLowerCase().endsWith('.heic')
-        );
+        const validFiles = Array.from(selectedFiles).filter(f => {
+            const typeOk = supportedTypes.includes(f.type) || f.name.toLowerCase().endsWith('.heic');
+            const sizeOk = f.size <= MAX_FILE_SIZE;
+            if (!sizeOk) {
+                setErrorMsg(`${f.name}: 50MB를 초과합니다.`);
+                setStatus('error');
+            }
+            return typeOk && sizeOk;
+        });
 
         if (validFiles.length !== selectedFiles.length) {
             setErrorMsg('일부 파일 형식이 제외되었습니다. (JPG, PNG, HEIC만 가능)');
@@ -72,8 +88,8 @@ export default function UploadModal({ isOpen, onClose }) {
             await Promise.all(files.map(file => api.uploadPhoto(file)));
             setStatus('success');
             window.dispatchEvent(new CustomEvent('photoUploaded', { detail: { timestamp: Date.now() } }));
-            // 2초 후 자동 닫기
-            setTimeout(() => {
+            // 2초 후 자동 닫기 (ref로 cleanup 가능하게)
+            closeTimerRef.current = setTimeout(() => {
                 handleClose();
             }, 2000);
         } catch (error) {

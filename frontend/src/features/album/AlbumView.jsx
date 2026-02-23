@@ -22,7 +22,7 @@ export default function AlbumView({ onSearchFocus }) {
     };
 
     useEffect(() => {
-        fetchPhotos();
+        if (isLoggedIn) fetchPhotos();
 
         const handleUploadEvent = () => {
             setIsTagging(true);
@@ -30,7 +30,7 @@ export default function AlbumView({ onSearchFocus }) {
         };
         window.addEventListener('photoUploaded', handleUploadEvent);
         return () => window.removeEventListener('photoUploaded', handleUploadEvent);
-    }, []);
+    }, [isLoggedIn]);
 
     // Polling effect while tagging
     useEffect(() => {

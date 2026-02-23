@@ -31,7 +31,7 @@ export default function Lightbox({ isOpen, onClose, photo, onNext, onPrev, hasNe
     if (!isOpen || !photo) return null;
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-md transition-opacity duration-300">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-md transition-opacity duration-300" onClick={onClose}>
             {/* Close Button */}
             <button
                 onClick={onClose}
@@ -60,7 +60,7 @@ export default function Lightbox({ isOpen, onClose, photo, onNext, onPrev, hasNe
             )}
 
             {/* Main Content */}
-            <div className="flex flex-col items-center justify-center w-full h-full p-4 md:p-10">
+            <div className="flex flex-col items-center justify-center w-full h-full p-4 md:p-10" onClick={(e) => e.stopPropagation()}>
                 <div className="relative max-w-7xl max-h-[85vh] flex items-center justify-center">
                     <img
                         src={photo.url}
