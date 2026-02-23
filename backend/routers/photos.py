@@ -61,13 +61,24 @@ def get_photo_image(photo_id: int):
             if file_path.startswith("http://") or file_path.startswith("https://"):
                 from fastapi.responses import RedirectResponse
                 return RedirectResponse(url=file_path, status_code=307)
-            # 버킷 이름이 지정된 경우 (일반적인 업로드 케이스) S3 key로 간주
             elif "AWS_S3_BUCKET_NAME" in os.environ:
                 bucket = os.getenv("AWS_S3_BUCKET_NAME")
                 region = os.getenv("AWS_S3_REGION", "ap-northeast-2")
-                s3_url = f"https://{bucket}.s3.{region}.amazonaws.com/{file_path}"
+                
+                import boto3
+                s3_client = boto3.client(
+                    "s3",
+                    region_name=region,
+                    aws_access_key_id=os.getenv("AWS_ACCESS_KEY_ID"),
+                    aws_secret_access_key=os.getenv("AWS_SECRET_ACCESS_KEY"),
+                )
+                presigned_url = s3_client.generate_presigned_url(
+                    ClientMethod="get_object",
+                    Params={"Bucket": bucket, "Key": file_path},
+                    ExpiresIn=3600
+                )
                 from fastapi.responses import RedirectResponse
-                return RedirectResponse(url=s3_url, status_code=307)
+                return RedirectResponse(url=presigned_url, status_code=307)
 
         # 하위 호환: 로컬 경로가 저장된 경우 파일 직접 반환
         if not os.path.exists(file_path):

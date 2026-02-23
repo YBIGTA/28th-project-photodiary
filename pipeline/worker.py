@@ -40,7 +40,6 @@ def _extract_s3_key(file_path: str) -> str:
     - S3 URL 예시:  https://bucket.s3.region.amazonaws.com/photos/1/abc.jpg
                     → photos/1/abc.jpg
     """
-    # TODO: DB에 저장된 file_path는 보통 한 가지 종류일듯. 팀원 구현 코드 확인 필요.
     if file_path.startswith("http://") or file_path.startswith("https://"):
         # URL에서 도메인 제거 후 첫 '/' 이후 path만 추출
         from urllib.parse import urlparse
@@ -88,7 +87,7 @@ def process_photo_pipeline(photo_id: int, user_id: int, s3_key: str):
             
             # RAM++ 모델 VRAM 해제
             import pipeline.core.ram_tagger as ram_mod
-            if ram_mod._model is not None:
+            if getattr(ram_mod, "_model", None) is not None:
                 del ram_mod._model
                 ram_mod._model = None
                 import torch

@@ -144,6 +144,9 @@ class RAGEngine:
         # 날짜 문자열 → datetime 변환
         date_from = _parse_date(result.date_from)
         date_to = _parse_date(result.date_to)
+        
+        if date_to:
+            date_to = date_to.replace(hour=23, minute=59, second=59)
 
         conn = get_connection()
         try:
@@ -236,6 +239,9 @@ class RAGEngine:
 
         date_from = _parse_date(result.date_from)
         date_to = _parse_date(result.date_to)
+        
+        if date_to:
+            date_to = date_to.replace(hour=23, minute=59, second=59)
 
         conn = get_connection()
         try:
