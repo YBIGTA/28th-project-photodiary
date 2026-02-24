@@ -1,6 +1,7 @@
 import React from 'react';
-import { MessageSquare, Image as ImageIcon, Plus, BookOpen, User, LogOut, Camera } from 'lucide-react';
+import { MessageSquare, Image as ImageIcon, Plus, BookOpen, User, LogOut } from 'lucide-react';
 import { useAuth } from '../../contexts/useAuth';
+import logoImg from '../../assets/logo.png';
 
 export default function Sidebar({ activeView, onNavigate, onUploadClick }) {
     const { isLoggedIn, logout, openAuthModal } = useAuth();
@@ -15,10 +16,10 @@ export default function Sidebar({ activeView, onNavigate, onUploadClick }) {
                 {/* 로고 영역 (클릭 시 메인 화면으로 이동) */}
                 <button
                     onClick={() => onNavigate('album')}
-                    className="focus:outline-none transition-transform duration-300 hover:scale-110"
+                    className="focus:outline-none transition-transform duration-300 hover:scale-110 flex items-center justify-center w-12 h-12"
                     title="Home"
                 >
-                    <Camera size={28} className="text-[#B6694E]" strokeWidth={2.5} />
+                    <img src={logoImg} alt="PicTrace Logo" className="w-[38px] h-[38px] object-contain" />
                 </button>
 
                 {/* 로그인 / 프로필 영역 */}
