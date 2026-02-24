@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { X, UploadCloud, Image as ImageIcon, MapPin, CheckCircle, AlertCircle } from 'lucide-react';
 import { api } from '../../api/client';
+import exifr from 'exifr';
 
 export default function UploadModal({ isOpen, onClose }) {
     const [files, setFiles] = useState([]);
@@ -8,6 +9,7 @@ export default function UploadModal({ isOpen, onClose }) {
     const [isDragging, setIsDragging] = useState(false);
     const [status, setStatus] = useState('idle'); // 'idle' | 'uploading' | 'success' | 'error'
     const [errorMsg, setErrorMsg] = useState('');
+    const [gpsWarning, setGpsWarning] = useState(null); // null | 'some' | 'all'
     const fileInputRef = useRef(null);
     const closeTimerRef = useRef(null);
     const uploadCounterRef = useRef(0);
@@ -25,7 +27,7 @@ export default function UploadModal({ isOpen, onClose }) {
 
     const supportedTypes = ['image/jpeg', 'image/png', 'image/heic'];
 
-    const handleFiles = (selectedFiles) => {
+    const handleFiles = async (selectedFiles) => {
         if (!selectedFiles || selectedFiles.length === 0) return;
 
         const validFiles = Array.from(selectedFiles).filter(f => {
@@ -50,7 +52,20 @@ export default function UploadModal({ isOpen, onClose }) {
         if (status === 'error') setStatus('idle');
         setErrorMsg('');
 
-        // Create previews
+        // GPS EXIF 감지 (비동기, 파일 선택 직후 백그라운드로 실행)
+        const gpsResults = await Promise.all(
+            validFiles.map(f => exifr.gps(f).catch(() => null))
+        );
+        const missingCount = gpsResults.filter(r => !r || (!r.latitude && r.latitude !== 0)).length;
+        if (missingCount === validFiles.length) {
+            setGpsWarning('all');
+        } else if (missingCount > 0) {
+            setGpsWarning('some');
+        } else {
+            setGpsWarning(null);
+        }
+
+        // 미리보기 생성
         validFiles.forEach(file => {
             const reader = new FileReader();
             reader.onloadend = () => {
@@ -107,6 +122,7 @@ export default function UploadModal({ isOpen, onClose }) {
         setStatus('idle');
         setErrorMsg('');
         setIsDragging(false);
+        setGpsWarning(null);
         onClose();
     };
 
@@ -230,11 +246,30 @@ export default function UploadModal({ isOpen, onClose }) {
                     )}
 
                     {/* GPS Warning */}
-                    <div className="mt-5 flex items-start gap-2.5 p-3.5 bg-[#EAE5D9]/30 rounded-xl border border-[#D7AD7E]/20">
-                        <MapPin className="text-[#B6694E] shrink-0 mt-0.5" size={16} />
-                        <p className="text-[11px] md:text-xs text-[#6B6653]/90 leading-relaxed">
-                            <strong className="block text-[#6B6653] mb-0.5 text-xs">Location Data Recommended</strong>
-                            위치 정보(GPS)가 포함된 사진은 장소 기반 자동 정리에 최적화됩니다.
+                    <div className={`mt-5 flex items-start gap-2.5 p-3.5 rounded-xl border transition-all ${gpsWarning
+                            ? 'bg-orange-50 border-orange-300 shadow-sm'
+                            : 'bg-[#EAE5D9]/30 border-[#D7AD7E]/20'
+                        }`}>
+                        <MapPin className={`shrink-0 mt-0.5 ${gpsWarning ? 'text-orange-500' : 'text-[#B6694E]'}`} size={16} />
+                        <p className="text-[11px] md:text-xs leading-relaxed">
+                            <strong className={`block mb-0.5 text-xs ${gpsWarning ? 'text-orange-700' : 'text-[#6B6653]'}`}>
+                                Location Data Recommended
+                            </strong>
+                            {gpsWarning === 'all' && (
+                                <span className="text-orange-600 font-medium">
+                                    업로드 예정 사진 전체에 위치 정보가 없습니다. 장소 기반 자동 분류가 제한될 수 있습니다.
+                                </span>
+                            )}
+                            {gpsWarning === 'some' && (
+                                <span className="text-orange-600 font-medium">
+                                    업로드 예정 사진 중 일부에 위치 정보가 없는 것을 감지했습니다.
+                                </span>
+                            )}
+                            {!gpsWarning && (
+                                <span className="text-[#6B6653]/90">
+                                    위치 정보(GPS)가 포함된 사진은 장소 기반 자동 정리에 최적화됩니다.
+                                </span>
+                            )}
                         </p>
                     </div>
 

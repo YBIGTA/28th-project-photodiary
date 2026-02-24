@@ -35,7 +35,12 @@ export function AuthProvider({ children }) {
             localStorage.setItem('user', JSON.stringify({ id: data.user_id, username: data.username, email }));
             return { success: true };
         } catch (error) {
-            return { success: false, error: error.response?.data?.detail || "로그인에 실패했습니다." };
+            let errorMsg = "로그인에 실패했습니다.";
+            const detail = error.response?.data?.detail;
+            if (detail) {
+                errorMsg = Array.isArray(detail) ? detail[0].msg : detail;
+            }
+            return { success: false, error: errorMsg };
         }
     };
 
@@ -48,7 +53,12 @@ export function AuthProvider({ children }) {
             localStorage.setItem('user', JSON.stringify({ id: data.user_id, username: data.username, email }));
             return { success: true };
         } catch (error) {
-            return { success: false, error: error.response?.data?.detail || "회원가입에 실패했습니다." };
+            let errorMsg = "회원가입에 실패했습니다.";
+            const detail = error.response?.data?.detail;
+            if (detail) {
+                errorMsg = Array.isArray(detail) ? detail[0].msg : detail;
+            }
+            return { success: false, error: errorMsg };
         }
     };
 
