@@ -42,26 +42,6 @@ const MemoryBox = ({ evt }) => {
     const month = dateObj.getMonth() + 1;
     const title = `${year}년 ${month}월, ${evt.location}`;
 
-    // 사진 캡션과 장소 정보를 기반으로 요약 생성
-    const captions = evt.photos
-        .map(p => p.caption)
-        .filter(Boolean);
-    const locations = [...new Set(
-        evt.photos
-            .map(p => [p.city, p.district, p.road, p.building].filter(Boolean).join(' '))
-            .filter(s => s.length > 0)
-    )];
-    const day = dateObj.getDate();
-
-    let description;
-    if (captions.length > 0) {
-        description = captions.slice(0, 3).join('. ');
-        if (captions.length > 3) description += ` 외 ${captions.length - 3}장`;
-    } else if (locations.length > 0) {
-        description = `${year}년 ${month}월 ${day}일, ${locations.join(', ')}에서의 추억`;
-    } else {
-        description = `${year}년 ${month}월 ${day}일, ${evt.photos.length}장의 사진`;
-    }
 
     return (
         <div
@@ -90,16 +70,11 @@ const MemoryBox = ({ evt }) => {
                 ))}
             </div>
 
-            {/* 텍스트 영역: 좌측 제목(Bold), 우측 설명(자동 줄바꿈 최적화) */}
-            <div className="mt-2 p-3 pb-6 md:px-4 md:py-4 bg-slate-50 flex flex-col sm:flex-row justify-between items-start gap-4">
-                {/* 좌측 정렬, 줄어들지 않음(shrink-0) */}
-                <h3 className="text-xl md:text-2xl font-bold text-slate-800 shrink-0 mt-1">
+            {/* 제목 영역 */}
+            <div className="mt-2 px-3 pb-6 md:px-4 md:py-3">
+                <h3 className="text-xl md:text-2xl font-bold text-slate-800">
                     {title}
                 </h3>
-                {/* 우측 정렬, 자동 줄바꿈. 컨테이너 길이에 따라 좌측 정렬이 될 수도 있으나 우측 여백을 둠 */}
-                <p className="text-sm md:text-base text-slate-700 sm:text-right sm:max-w-[65%] break-keep leading-relaxed pt-1">
-                    {description}
-                </p>
             </div>
         </div>
     );
